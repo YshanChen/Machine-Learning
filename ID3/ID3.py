@@ -6,6 +6,7 @@ from treelib import *
 from pythonds.basic.stack import Stack
 from pythonds.trees.binaryTree import BinaryTree
 from sklearn import preprocessing
+import re
 
 # ------------------------- 数据集 --------------------------- #
 df = pd.read_csv('Data/ID3.csv',encoding="GBK")
@@ -232,13 +233,49 @@ DTree.show()
 
 
 
+# -----------------------------------------------------------------
+DicTree = {}
+DicTree = {'car=0':{'age=2':1,'age=3':1,'age=1':{'loan=1':0,'loan=2':1}},
+           'car=1':{'money=1':0,'money=4':0,'money=3':{'age=1':1,'age=2':{'hourse=0':0,'hourse=1':1}},'money=2':{'hourse=1':0,'hourse=0':1}}}
+
+Tree = DicTree
+def traverse_T(Tree):
+    if isinstance(Tree,dict):
+        for keys,values in Tree.items():
+            T_key = keys
+            T_value = values
+            traverse_T(T_value)
+    else:
+        print(Tree)
+
+traverse_T(DicTree)
+
+df_predict = df.ix[0,:]
+type(df_predict)
+
+keys = 'car=0'
+values = {'age=2': 1, 'age=3': 2, 'age=1': {'loan=1': 3, 'loan=2': 4}}
+
+def ID3_predict(DTree,new_data):
+    for keys,values in DTree.items():
+        # print([keys,values])
+        # print('-----------------')
+        T_key = keys
+        T_value = values
+
+        T_key_list = re.split('(=|<|<=|>|>=|!=)',T_key)
+        split_feature = T_key_list[0]
+        split_feature_oper = T_key_list[1]
+        split_feature_value = T_key_list[2]
+
+        if  str(new_data[split_feature]) == split_feature_value:
+            if isinstance(T_value,dict):
+                ID3_predict(T_value,new_data)
+            else:
+                print(T_value)
 
 
-
-
-
-
-
+ID3_predict(DTree = DicTree,new_data = df_predict)
 
 
 
