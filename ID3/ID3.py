@@ -231,51 +231,43 @@ DTree = ID3(df,'class')
 DTree.show()
 
 
-
-
-# -----------------------------------------------------------------
-DicTree = {}
+# --------------------------- 预测函数 ----------------------------- #
 DicTree = {'car=0':{'age=2':1,'age=3':1,'age=1':{'loan=1':0,'loan=2':1}},
            'car=1':{'money=1':0,'money=4':0,'money=3':{'age=1':1,'age=2':{'hourse=0':0,'hourse=1':1}},'money=2':{'hourse=1':0,'hourse=0':1}}}
 
-Tree = DicTree
-def traverse_T(Tree):
-    if isinstance(Tree,dict):
-        for keys,values in Tree.items():
+
+def ID3_predict_one(DTree,row_data):
+
+        for keys,values in DTree.items():
             T_key = keys
             T_value = values
-            traverse_T(T_value)
-    else:
-        print(Tree)
 
-traverse_T(DicTree)
+            T_key_list = re.split('(=|<|<=|>|>=|!=)',T_key)
+            split_feature = T_key_list[0]
+            split_feature_oper = T_key_list[1]
+            split_feature_value = T_key_list[2]
 
-df_predict = df.ix[0,:]
-type(df_predict)
+            if  str(row_data[split_feature]) == split_feature_value:
+                if isinstance(T_value,dict):
+                    return ID3_predict_one(T_value,row_data)
+                else:
+                    return T_value
 
-keys = 'car=0'
-values = {'age=2': 1, 'age=3': 2, 'age=1': {'loan=1': 3, 'loan=2': 4}}
 
 def ID3_predict(DTree,new_data):
-    for keys,values in DTree.items():
-        # print([keys,values])
-        # print('-----------------')
-        T_key = keys
-        T_value = values
+    predict_Y = []
 
-        T_key_list = re.split('(=|<|<=|>|>=|!=)',T_key)
-        split_feature = T_key_list[0]
-        split_feature_oper = T_key_list[1]
-        split_feature_value = T_key_list[2]
+    for row_data in new_data.iterrows():
 
-        if  str(new_data[split_feature]) == split_feature_value:
-            if isinstance(T_value,dict):
-                ID3_predict(T_value,new_data)
-            else:
-                print(T_value)
+        # row_data_series = temp[0]
+
+        row_data_series = row_data[1]
+        predict_Y.append(ID3_predict_one(DTree,row_data_series))
+
+    return(predict_Y)
 
 
-ID3_predict(DTree = DicTree,new_data = df_predict)
+predict_Y = ID3_predict(DTree = DicTree,new_data = df)
 
 
 
