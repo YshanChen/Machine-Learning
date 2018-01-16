@@ -25,8 +25,16 @@ df['class'] = np.where(df['class'] == "是",1,0)
 for i in np.arange(len(df.columns)):
     df.ix[:,i] = df.ix[:,i].astype('category')
 
+df = df[['class', 'work', 'hourse', 'loan', 'age']]
 
-# ----------------------------------  信息增益算法 ------------------------------------- #
+
+
+# 信息增益算法 -----------------------------------------------------
+def order_Y(data, y):
+    df= data.copy()
+    df['label'] = df[y]
+    df = df.drop([y],axis=1)
+    return df
 
 # 特征分裂向量
 def feature_split(df,y):
@@ -107,56 +115,14 @@ def gain_max(df,y):
     return [df.columns[gain_vec.argmax()],gain_vec.max()]
 
 
-# -------------------------------- ID3 算法  -------------------------------------- #
-def merge_two_dicts(x,y):
-    z = x.copy()  # start with x's keys and values
-    z.update(y)  # modifies z with y's keys and values & returns None
-    return z
-
-
-pp = df
-df = pp
-y = 'class'
-delta = 0.005
-
-DTree = {}
-
-max_class_in_D = df[y].value_counts().argmax()  # D中实例最大的类
-
-if gain_max(df,y)[1] >= delta:
-    split_feature_name = gain_max(df,y)[0]
-
-    # 初次分裂
-    for cat in np.unique(df[split_feature_name]):
-
-        # cat = 1
-        df_split_temp = df[df[split_feature_name] == cat].drop(split_feature_name,axis=1)
-        description = ' '.join([str(split_feature_name),'=',str(cat)])
-
-        currentValue = df_split_temp
-
-        if gain_max(df_split_temp,y)[1] < delta:
-            currentValue = max_class_in_D
-
-        if (len(df_split_temp[y].unique()) == 1):
-            currentValue = df[y].values[0]
-
-        if df_split_temp.empty == True:
-            currentValue = max_class_in_D
-
-        currentTree = {description: currentValue}
-        DTree.update(currentTree)
-
-
-def Decision_Tree(DTree,y='class',delta=0.005):
+# 训练 ---------------------------------------------------------
+def Decision_Tree(DTree,y,delta,max_class_in_D):
     for key,value in DTree.items():
-        print([key,value])
-        print('-----------------------------')
+
+       # print([key,value])
+       # print('--------------------------')
 
         subTree = {}
-
-        # key = 'car = 0'
-        # value = DTree[key]
 
         if isinstance(value,pd.DataFrame):
             df = value
@@ -173,7 +139,7 @@ def Decision_Tree(DTree,y='class',delta=0.005):
                         df_split_temp.empty != True):
 
                     currentTree = {description: df_split_temp}
-                    currentValue = Decision_Tree(currentTree,y='class',delta=0.005)
+                    currentValue = Decision_Tree(currentTree,y,delta)
 
                     subTree.update(currentValue)
 
@@ -198,14 +164,43 @@ def Decision_Tree(DTree,y='class',delta=0.005):
     return DTree
 
 
-q = Decision_Tree(DTree,y='class',delta=0.005)
+def ID3(data,y,delta=0.005):
+    # 标准化数据集
+    data = order_Y(data,y)
+    y = 'label'
 
-# --------------------------- 预测函数 ----------------------------- #
-DicTree = {'car=0': {'age=2': 1,'age=3': 1,'age=1': {'loan=1': 0,'loan=2': 1}},
-           'car=1': {'money=1': 0,'money=4': 0,'money=3': {'age=1': 1,'age=2': {'hourse=0': 0,'hourse=1': 1}},
-                     'money=2': {'hourse=1': 0,'hourse=0': 1}}}
+    DTree = {}
+
+    max_class_in_D = data[y].value_counts().argmax()  # D中实例最大的类
+
+    if gain_max(data,y)[1] >= delta:
+        split_feature_name = gain_max(data,y)[0]
+
+        # 初次分裂
+        for cat in np.unique(data[split_feature_name]):
+
+            # cat = 1
+            data_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name,axis=1)
+            description = ' '.join([str(split_feature_name),'=',str(cat)])
+
+            currentValue = data_split_temp
+
+            if gain_max(data_split_temp,y)[1] < delta:
+                currentValue = max_class_in_D
+
+            if (len(data_split_temp[y].unique()) == 1):
+                currentValue = data[y].values[0]
+
+            if data_split_temp.empty == True:
+                currentValue = max_class_in_D
+
+            currentTree = {description: currentValue}
+            DTree.update(currentTree)
+
+    return Decision_Tree(DTree, y, delta, max_class_in_D)
 
 
+# 预测 ---------------------------------------------------------
 def ID3_predict_one(DTree,row_data):
     for keys,values in DTree.items():
         T_key = keys
@@ -235,7 +230,65 @@ def ID3_predict(DTree,new_data):
     return (predict_Y)
 
 
-predict_Y = ID3_predict(DTree=q,new_data=df)
+# --------------------------------- 测试 -------------------------------------- #
+# Kaggle Titanic Data
+data = pd.read_csv('Data/train.csv')
+
+data = data.drop(['PassengerId','Name','Ticket','Cabin'],axis=1)
+
+# 1
+data.ix[:,'Survived'] = data.ix[:,'Survived'].astype('category')
+
+# 2
+data['Pclass'].value_counts()
+data.ix[:,'Pclass'] = data.ix[:,'Pclass'].astype('category')
+
+# 3
+data['Sex'].value_counts()
+data.Sex = np.where(data.Sex == "male",1,2)
+data.ix[:,'Sex'] = data.ix[:,'Sex'].astype('category')
+
+# 4
+data['Age'] = data['Age'].fillna(np.mean(data['Age']))
+data.Age = np.where(data.Age <= 10,1,
+                    np.where(data.Age <= 20,2,
+                             np.where(data.Age <= 30,3,
+                                      np.where(data.Age <= 40,4,
+                                               np.where(data.Age <= 50,5,6)))))
+data.ix[:,'Age'] = data.ix[:,'Age'].astype('category')
+
+# 5
+data['SibSp'].value_counts()
+data.ix[:,'SibSp'] = data.ix[:,'SibSp'].astype('category')
+
+# 6
+any(pd.isnull(data['Parch']))
+data['Parch'].value_counts()
+data.ix[:,'Parch'] = data.ix[:,'Parch'].astype('category')
+
+# 7
+pd.isnull(['Fare'])
+data['Fare'] = data['Fare'].fillna(np.mean(data['Fare']))
+
+data.Fare.describe()
+
+data.Fare = np.where(data.Fare <= 7,1,
+                    np.where(data.Fare <= 15,2,
+                             np.where(data.Fare <= 32,3,
+                                      np.where(data.Fare <= 50,4,
+                                               np.where(data.Fare <= 80,5,6)))))
+data.ix[:,'Fare'] = data.ix[:,'Fare'].astype('category')
+
+# 8
+any(pd.isnull(data['Embarked']))
+data['Embarked'] = data['Embarked'].fillna(data.Embarked.value_counts()[0])
+data.Embarked = np.where(data.Embarked == 'S',1,
+                         np.where(data.Embarked == 'C',2,3))
+data.ix[:,'Embarked'] = data.ix[:,'Embarked'].astype('category')
+
+# ----------------
+model_DT = ID3(data=df, y='class', delta=0.005)
+
 
 
 
