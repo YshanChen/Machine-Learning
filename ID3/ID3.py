@@ -115,41 +115,8 @@ def gain_max(df,y):
 
 
 # 训练 ---------------------------------------------------------
-
-key = 'Sex = 1'
-value = DTree[key]
-
-DTree = currentTree
-key = 'Fare = 3'
-value = DTree[key]
-
-DTree = currentTree
-key = 'Age = 4'
-value = DTree[key]
-
-DTree = currentTree
-key = 'Embarked = 1'
-value = DTree[key]
-
-
-DTree = currentTree
-key = 'Pclass = 2'
-value = DTree[key]
-
-DTree = currentTree
-key = 'SibSp = 1'
-value = DTree[key]
-
-DTree = currentTree
-key = 'Parch = 0'
-value = DTree[key]
-
-
 def Decision_Tree(DTree,y,delta,max_class_in_D,par_description = ''):
     for key,value in DTree.items():
-
-        print([key,value])
-        print('--------------------------')
 
         subTree = {}
 
@@ -158,59 +125,40 @@ def Decision_Tree(DTree,y,delta,max_class_in_D,par_description = ''):
 
             # 判断是否信息增益达到阈值
             if (len(df.columns) - 1) >= 1 and gain_max(df,y)[1] >= delta:
-                print('到这里了？分裂')
-                print("满足delta和特征数量")
-
                 split_feature_name = gain_max(df,y)[0]
 
                 for cat in np.unique(df[split_feature_name]):
 
-                    # cat = 1
-
                     df_split_temp = df[df[split_feature_name] == cat].drop(split_feature_name,axis=1)
                     description = ' '.join([str(split_feature_name),'=',str(cat)])
-                    print(description)
+
                     par_description = description
 
-                    print("有没有？！")
                     if (len(df_split_temp[y].unique()) != 1) and (df_split_temp.empty != True):
-
-                        print("继续分裂！")
 
                         currentTree = {description: df_split_temp}
                         currentValue = Decision_Tree(currentTree,y,delta,max_class_in_D,par_description)
 
-                        print("没有出现就上面错了！")
-                        print(currentValue)
                         subTree.update(currentValue)
 
                     else:
-                        print("没有分裂！")
 
                         if (len(df_split_temp[y].unique()) == 1):
-                            print('Leaf Node：唯一类！')
                             leaf_node = df_split_temp[y].values[0]
 
                         if (df_split_temp.empty == True):
-                            print('Leaf Node：空集！')
                             leaf_node = max_class_in_D
 
-                        print("两个都不满足？！")
-                        print({description: leaf_node})
                         subTree.update({description: leaf_node})
 
             elif (len(df.columns) - 1) < 1:
-                print('没得特征分裂了！')
                 leaf_node = df[y].values[0]
 
-                print(leaf_node)
                 subTree = leaf_node
 
             elif gain_max(df,y)[1] < delta:
-                print("不满足delta")
                 leaf_node = max_class_in_D
 
-                print(leaf_node)
                 subTree = leaf_node
 
             DTree[key] = subTree
@@ -218,7 +166,6 @@ def Decision_Tree(DTree,y,delta,max_class_in_D,par_description = ''):
         else:
             print("Data is not a DataFrame!")
 
-    print('====================================================')
     return DTree
 
 
@@ -350,6 +297,6 @@ pre_Y = ID3_predict(model_DT,df)
 td = data
 
 model_DT = ID3(data=data,y='Survived',delta=0.005)
-pre_Y = ID3_predict(model_DT,td)
+pre_Y = ID3_predict(model_DT,data)
 
 
