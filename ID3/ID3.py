@@ -13,8 +13,7 @@ df = pd.read_csv('E:/Machine Learning/Algorithm implementation/Data/ID3_1.csv',e
 df.info()
 
 # 处理数据集
-df.age = np.where(df.age == "青年",1,
-                  np.where(df.age == "中年",2,3))
+df.age = np.where(df.age == "青年",np.where(df.age == "中年",2,3),1)
 df.loan = np.where(df.loan == "一般",1,
                    np.where(df.loan == "好",2,3))
 
@@ -25,16 +24,16 @@ df['class'] = np.where(df['class'] == "是",1,0)
 for i in np.arange(len(df.columns)):
     df.ix[:,i] = df.ix[:,i].astype('category')
 
-df = df[['class', 'work', 'hourse', 'loan', 'age']]
-
+df = df[['class','work','hourse','loan','age']]
 
 
 # 信息增益算法 -----------------------------------------------------
-def order_Y(data, y):
-    df= data.copy()
+def order_Y(data,y):
+    df = data.copy()
     df['label'] = df[y]
     df = df.drop([y],axis=1)
     return df
+
 
 # 特征分裂向量
 def feature_split(df,y):
@@ -116,51 +115,110 @@ def gain_max(df,y):
 
 
 # 训练 ---------------------------------------------------------
-def Decision_Tree(DTree,y,delta,max_class_in_D):
+
+key = 'Sex = 1'
+value = DTree[key]
+
+DTree = currentTree
+key = 'Fare = 3'
+value = DTree[key]
+
+DTree = currentTree
+key = 'Age = 4'
+value = DTree[key]
+
+DTree = currentTree
+key = 'Embarked = 1'
+value = DTree[key]
+
+
+DTree = currentTree
+key = 'Pclass = 2'
+value = DTree[key]
+
+DTree = currentTree
+key = 'SibSp = 1'
+value = DTree[key]
+
+DTree = currentTree
+key = 'Parch = 0'
+value = DTree[key]
+
+
+def Decision_Tree(DTree,y,delta,max_class_in_D,par_description = ''):
     for key,value in DTree.items():
 
-       # print([key,value])
-       # print('--------------------------')
+        print([key,value])
+        print('--------------------------')
 
         subTree = {}
 
         if isinstance(value,pd.DataFrame):
             df = value
 
-            split_feature_name = gain_max(df,y)[0]
+            # 判断是否信息增益达到阈值
+            if (len(df.columns) - 1) >= 1 and gain_max(df,y)[1] >= delta:
+                print('到这里了？分裂')
+                print("满足delta和特征数量")
 
-            for cat in np.unique(df[split_feature_name]):
+                split_feature_name = gain_max(df,y)[0]
 
-                # cat = 1
-                df_split_temp = df[df[split_feature_name] == cat].drop(split_feature_name,axis=1)
-                description = ' '.join([str(split_feature_name),'=',str(cat)])
+                for cat in np.unique(df[split_feature_name]):
 
-                if (gain_max(df_split_temp,y)[1] >= delta) and (len(df_split_temp[y].unique()) != 1) and (
-                        df_split_temp.empty != True):
+                    # cat = 1
 
-                    currentTree = {description: df_split_temp}
-                    currentValue = Decision_Tree(currentTree,y,delta)
+                    df_split_temp = df[df[split_feature_name] == cat].drop(split_feature_name,axis=1)
+                    description = ' '.join([str(split_feature_name),'=',str(cat)])
+                    print(description)
+                    par_description = description
 
-                    subTree.update(currentValue)
+                    print("有没有？！")
+                    if (len(df_split_temp[y].unique()) != 1) and (df_split_temp.empty != True):
 
-                else:
+                        print("继续分裂！")
 
-                    if gain_max(df_split_temp,y)[1] < delta:
-                        currentValue = max_class_in_D
+                        currentTree = {description: df_split_temp}
+                        currentValue = Decision_Tree(currentTree,y,delta,max_class_in_D,par_description)
 
-                    if (len(df_split_temp[y].unique()) == 1):
-                        currentValue = df_split_temp[y].values[0]
+                        print("没有出现就上面错了！")
+                        print(currentValue)
+                        subTree.update(currentValue)
 
-                    if (df_split_temp.empty == True):
-                        currentValue = max_class_in_D
+                    else:
+                        print("没有分裂！")
 
-                    subTree.update({description: currentValue})
+                        if (len(df_split_temp[y].unique()) == 1):
+                            print('Leaf Node：唯一类！')
+                            leaf_node = df_split_temp[y].values[0]
+
+                        if (df_split_temp.empty == True):
+                            print('Leaf Node：空集！')
+                            leaf_node = max_class_in_D
+
+                        print("两个都不满足？！")
+                        print({description: leaf_node})
+                        subTree.update({description: leaf_node})
+
+            elif (len(df.columns) - 1) < 1:
+                print('没得特征分裂了！')
+                leaf_node = df[y].values[0]
+
+                print(leaf_node)
+                subTree = leaf_node
+
+            elif gain_max(df,y)[1] < delta:
+                print("不满足delta")
+                leaf_node = max_class_in_D
+
+                print(leaf_node)
+                subTree = leaf_node
 
             DTree[key] = subTree
 
         else:
-            print(99)
+            print("Data is not a DataFrame!")
 
+    print('====================================================')
     return DTree
 
 
@@ -173,7 +231,7 @@ def ID3(data,y,delta=0.005):
 
     max_class_in_D = data[y].value_counts().argmax()  # D中实例最大的类
 
-    if gain_max(data,y)[1] >= delta:
+    if gain_max(data,y)[1] >= delta :
         split_feature_name = gain_max(data,y)[0]
 
         # 初次分裂
@@ -197,7 +255,7 @@ def ID3(data,y,delta=0.005):
             currentTree = {description: currentValue}
             DTree.update(currentTree)
 
-    return Decision_Tree(DTree, y, delta, max_class_in_D)
+    return Decision_Tree(DTree,y,delta,max_class_in_D)
 
 
 # 预测 ---------------------------------------------------------
@@ -222,7 +280,6 @@ def ID3_predict(DTree,new_data):
     predict_Y = []
 
     for row_data in new_data.iterrows():
-        # row_data_series = temp[0]
 
         row_data_series = row_data[1]
         predict_Y.append(ID3_predict_one(DTree,row_data_series))
@@ -273,10 +330,10 @@ data['Fare'] = data['Fare'].fillna(np.mean(data['Fare']))
 data.Fare.describe()
 
 data.Fare = np.where(data.Fare <= 7,1,
-                    np.where(data.Fare <= 15,2,
-                             np.where(data.Fare <= 32,3,
-                                      np.where(data.Fare <= 50,4,
-                                               np.where(data.Fare <= 80,5,6)))))
+                     np.where(data.Fare <= 15,2,
+                              np.where(data.Fare <= 32,3,
+                                       np.where(data.Fare <= 50,4,
+                                                np.where(data.Fare <= 80,5,6)))))
 data.ix[:,'Fare'] = data.ix[:,'Fare'].astype('category')
 
 # 8
@@ -287,12 +344,12 @@ data.Embarked = np.where(data.Embarked == 'S',1,
 data.ix[:,'Embarked'] = data.ix[:,'Embarked'].astype('category')
 
 # ----------------
-model_DT = ID3(data=df, y='class', delta=0.005)
+model_DT = ID3(data=df,y='class',delta=0.005)
+pre_Y = ID3_predict(model_DT,df)
 
+td = data
 
-
-
-
-
+model_DT = ID3(data=data,y='Survived',delta=0.005)
+pre_Y = ID3_predict(model_DT,td)
 
 
