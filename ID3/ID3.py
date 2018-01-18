@@ -206,6 +206,23 @@ def ID3(data,y,delta=0.005):
 
 
 # 预测 ---------------------------------------------------------
+def most_leaf_node(tree):
+    global leaf_node
+
+    for value in tree.values():
+        if isinstance(value,dict):
+            most_leaf_node(value)
+        else:
+            leaf_node.append(value)
+
+    return max(set(leaf_node),key=leaf_node.count)
+
+
+def most_class(tree):
+    leaf_node = []
+    return most_leaf_node(tree)
+
+
 def ID3_predict_one(DTree,row_data):
     for keys,values in DTree.items():
         T_key = keys
@@ -217,8 +234,8 @@ def ID3_predict_one(DTree,row_data):
         split_feature_value = T_key_list[2].strip()
 
         if str(row_data[split_feature]) == split_feature_value:
-            if isinstance(T_value,dict):
-                return ID3_predict_one(T_value,row_data)
+            if isinstance(T_value, dict):
+                return ID3_predict_one(T_value, row_data)
             else:
                 return T_value
 
@@ -226,17 +243,33 @@ def ID3_predict_one(DTree,row_data):
 def ID3_predict(DTree,new_data):
     predict_Y = []
 
+    most_leaf = most_class(DTree)
+
     for row_data in new_data.iterrows():
 
         row_data_series = row_data[1]
-        predict_Y.append(ID3_predict_one(DTree,row_data_series))
+
+        pre_y = ID3_predict_one(DTree, row_data_series)
+        if pre_y == None:
+            pre_y = most_leaf
+
+        predict_Y.append(pre_y)
 
     return (predict_Y)
 
+pre_Y = ID3_predict(model_DT, train_test)
 
 # --------------------------------- 测试 -------------------------------------- #
 # Kaggle Titanic Data
-data = pd.read_csv('Data/train.csv')
+train = pd.read_csv('E:/GitHub/Algorithms/Data/train.csv')
+train['set'] = 'train'
+
+test = pd.read_csv('E:/GitHub/Algorithms/Data/test.csv')
+test['Survived'] = np.full((test.shape[0], 1), 1, dtype=int)
+test = test[['PassengerId', 'Survived', 'Pclass', 'Name', 'Sex', 'Age', 'SibSp','Parch', 'Ticket', 'Fare', 'Cabin', 'Embarked']]
+test['set'] = 'test'
+
+data = pd.concat([train,test])
 
 data = data.drop(['PassengerId','Name','Ticket','Cabin'],axis=1)
 
@@ -290,13 +323,42 @@ data.Embarked = np.where(data.Embarked == 'S',1,
                          np.where(data.Embarked == 'C',2,3))
 data.ix[:,'Embarked'] = data.ix[:,'Embarked'].astype('category')
 
+
+
+train = data[data['set']=='train']
+train = train.drop(['set'],axis = 1)
+test = data[data['set']=='test']
+test = test.drop(['set','Survived'],axis = 1)
+
 # ----------------
-model_DT = ID3(data=df,y='class',delta=0.005)
-pre_Y = ID3_predict(model_DT,df)
+why_none = train_test.iloc[61]
 
-td = data
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
 
-model_DT = ID3(data=data,y='Survived',delta=0.005)
-pre_Y = ID3_predict(model_DT,data)
+train_train, train_test = train_test_split(train,test_size = 0.4, random_state=0)
 
+model_DT = ID3(data=train_train, y='Survived', delta=0.005)
+
+pre_Y = ID3_predict(model_DT, train_test)
+
+
+
+pre_dt = pd.DataFrame({'Y':train_test['Survived'],'pre_Y':pre_Y})
+pre_dt['Y'].cat.categories
+
+pre_dt.ix[:,'pre_Y'] = pre_dt.ix[:,'pre_Y'].astype('category')
+pre_dt['pre_Y'].cat.categories
+
+
+
+roc_auc_score(pre_dt.Y, pre_dt.pre_Y)
+
+
+pre_Y = ID3_predict(model_DT, test)
+submit = pd.DataFrame({'PassengerId':np.arange(892,1310),'Survived':pre_Y})
+submit.ix[:,'Survived'] = submit.ix[:,'Survived'].astype('category')
+submit['Survived'].cat.categories
+
+submit.to_csv('E:/GitHub/Algorithms/submit.csv',index = False)
 
