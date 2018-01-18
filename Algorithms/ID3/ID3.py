@@ -2,29 +2,9 @@
 import numpy as np
 import pandas as pd
 from math import log
-from treelib import *
-from pythonds.basic.stack import Stack
-from pythonds.trees.binaryTree import BinaryTree
-from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
 import re
-
-# ------------------------- 数据集 --------------------------- #
-df = pd.read_csv('E:/Machine Learning/Algorithm implementation/Data/ID3_1.csv',encoding="GBK")
-df.info()
-
-# 处理数据集
-df.age = np.where(df.age == "青年",np.where(df.age == "中年",2,3),1)
-df.loan = np.where(df.loan == "一般",1,
-                   np.where(df.loan == "好",2,3))
-
-df.work = np.where(df.work == "是",1,0)
-df.hourse = np.where(df.hourse == "是",1,0)
-df['class'] = np.where(df['class'] == "是",1,0)
-
-for i in np.arange(len(df.columns)):
-    df.ix[:,i] = df.ix[:,i].astype('category')
-
-df = df[['class','work','hourse','loan','age']]
 
 
 # 信息增益算法 -----------------------------------------------------
@@ -33,7 +13,6 @@ def order_Y(data,y):
     df['label'] = df[y]
     df = df.drop([y],axis=1)
     return df
-
 
 # 特征分裂向量
 def feature_split(df,y):
@@ -92,9 +71,9 @@ def con_entroy(Di_vec,Aik_vec):
 
 # 特征A的信息增益
 def gain(Di_vec,Aik_vec):
-    gain = entropy(Di_vec) - con_entroy(Di_vec,Aik_vec)
+    gain_A = entropy(Di_vec) - con_entroy(Di_vec,Aik_vec)
 
-    return (gain)
+    return (gain_A)
 
 
 # 计算每个特征的信息增益，并取最大值
@@ -115,7 +94,7 @@ def gain_max(df,y):
 
 
 # 训练 ---------------------------------------------------------
-def Decision_Tree(DTree,y,delta,max_class_in_D,par_description = ''):
+def Decision_Tree(DTree,y,delta,max_class_in_D,par_description=''):
     for key,value in DTree.items():
 
         subTree = {}
@@ -170,6 +149,7 @@ def Decision_Tree(DTree,y,delta,max_class_in_D,par_description = ''):
 
 
 def ID3(data,y,delta=0.005):
+
     # 标准化数据集
     data = order_Y(data,y)
     y = 'label'
@@ -178,7 +158,7 @@ def ID3(data,y,delta=0.005):
 
     max_class_in_D = data[y].value_counts().argmax()  # D中实例最大的类
 
-    if gain_max(data,y)[1] >= delta :
+    if gain_max(data,y)[1] >= delta:
         split_feature_name = gain_max(data,y)[0]
 
         # 初次分裂
@@ -207,20 +187,20 @@ def ID3(data,y,delta=0.005):
 
 # 预测 ---------------------------------------------------------
 def most_leaf_node(tree):
-    global leaf_node
+    global leaf_node_list
 
     for value in tree.values():
         if isinstance(value,dict):
             most_leaf_node(value)
         else:
-            leaf_node.append(value)
+            leaf_node_list.append(value)
 
-    return max(set(leaf_node),key=leaf_node.count)
+    return max(set(leaf_node_list),key=leaf_node_list.count)
 
 
-def most_class(tree):
-    leaf_node = []
-    return most_leaf_node(tree)
+# def most_class(tree):
+#     leaf_node_list = []
+#     return most_leaf_node(tree)
 
 
 def ID3_predict_one(DTree,row_data):
@@ -234,8 +214,8 @@ def ID3_predict_one(DTree,row_data):
         split_feature_value = T_key_list[2].strip()
 
         if str(row_data[split_feature]) == split_feature_value:
-            if isinstance(T_value, dict):
-                return ID3_predict_one(T_value, row_data)
+            if isinstance(T_value,dict):
+                return ID3_predict_one(T_value,row_data)
             else:
                 return T_value
 
@@ -243,13 +223,15 @@ def ID3_predict_one(DTree,row_data):
 def ID3_predict(DTree,new_data):
     predict_Y = []
 
+
+    leaf_node_list = []
     most_leaf = most_class(DTree)
 
     for row_data in new_data.iterrows():
 
         row_data_series = row_data[1]
 
-        pre_y = ID3_predict_one(DTree, row_data_series)
+        pre_y = ID3_predict_one(DTree,row_data_series)
         if pre_y == None:
             pre_y = most_leaf
 
@@ -257,108 +239,37 @@ def ID3_predict(DTree,new_data):
 
     return (predict_Y)
 
-pre_Y = ID3_predict(model_DT, train_test)
-
 # --------------------------------- 测试 -------------------------------------- #
 # Kaggle Titanic Data
-train = pd.read_csv('E:/GitHub/Algorithms/Data/train.csv')
-train['set'] = 'train'
 
-test = pd.read_csv('E:/GitHub/Algorithms/Data/test.csv')
-test['Survived'] = np.full((test.shape[0], 1), 1, dtype=int)
-test = test[['PassengerId', 'Survived', 'Pclass', 'Name', 'Sex', 'Age', 'SibSp','Parch', 'Ticket', 'Fare', 'Cabin', 'Embarked']]
-test['set'] = 'test'
+# 读取数据
+train = pd.read_csv('Data/train_fixed.csv')
+test = pd.read_csv('Data/test_fixed.csv')
 
-data = pd.concat([train,test])
+# 转为分类型变量
+for i in np.arange(len(train.columns)):
+    train.ix[:,i] = train.ix[:,i].astype('category')
+for i in np.arange(len(test.columns)):
+    test.ix[:,i] = test.ix[:,i].astype('category')
 
-data = data.drop(['PassengerId','Name','Ticket','Cabin'],axis=1)
+# 分割数据
+train_train,train_test = train_test_split(train,test_size=0.4,random_state=0)
 
-# 1
-data.ix[:,'Survived'] = data.ix[:,'Survived'].astype('category')
+# 训练
+model_DT = ID3(data=train_train,y='Survived',delta=0.005)
+# 预测
+pre_Y = ID3_predict(model_DT,train_test)
 
-# 2
-data['Pclass'].value_counts()
-data.ix[:,'Pclass'] = data.ix[:,'Pclass'].astype('category')
-
-# 3
-data['Sex'].value_counts()
-data.Sex = np.where(data.Sex == "male",1,2)
-data.ix[:,'Sex'] = data.ix[:,'Sex'].astype('category')
-
-# 4
-data['Age'] = data['Age'].fillna(np.mean(data['Age']))
-data.Age = np.where(data.Age <= 10,1,
-                    np.where(data.Age <= 20,2,
-                             np.where(data.Age <= 30,3,
-                                      np.where(data.Age <= 40,4,
-                                               np.where(data.Age <= 50,5,6)))))
-data.ix[:,'Age'] = data.ix[:,'Age'].astype('category')
-
-# 5
-data['SibSp'].value_counts()
-data.ix[:,'SibSp'] = data.ix[:,'SibSp'].astype('category')
-
-# 6
-any(pd.isnull(data['Parch']))
-data['Parch'].value_counts()
-data.ix[:,'Parch'] = data.ix[:,'Parch'].astype('category')
-
-# 7
-pd.isnull(['Fare'])
-data['Fare'] = data['Fare'].fillna(np.mean(data['Fare']))
-
-data.Fare.describe()
-
-data.Fare = np.where(data.Fare <= 7,1,
-                     np.where(data.Fare <= 15,2,
-                              np.where(data.Fare <= 32,3,
-                                       np.where(data.Fare <= 50,4,
-                                                np.where(data.Fare <= 80,5,6)))))
-data.ix[:,'Fare'] = data.ix[:,'Fare'].astype('category')
-
-# 8
-any(pd.isnull(data['Embarked']))
-data['Embarked'] = data['Embarked'].fillna(data.Embarked.value_counts()[0])
-data.Embarked = np.where(data.Embarked == 'S',1,
-                         np.where(data.Embarked == 'C',2,3))
-data.ix[:,'Embarked'] = data.ix[:,'Embarked'].astype('category')
-
-
-
-train = data[data['set']=='train']
-train = train.drop(['set'],axis = 1)
-test = data[data['set']=='test']
-test = test.drop(['set','Survived'],axis = 1)
-
-# ----------------
-why_none = train_test.iloc[61]
-
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score
-
-train_train, train_test = train_test_split(train,test_size = 0.4, random_state=0)
-
-model_DT = ID3(data=train_train, y='Survived', delta=0.005)
-
-pre_Y = ID3_predict(model_DT, train_test)
-
-
-
-pre_dt = pd.DataFrame({'Y':train_test['Survived'],'pre_Y':pre_Y})
+# AUC
+pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': pre_Y})
 pre_dt['Y'].cat.categories
-
 pre_dt.ix[:,'pre_Y'] = pre_dt.ix[:,'pre_Y'].astype('category')
 pre_dt['pre_Y'].cat.categories
+roc_auc_score(pre_dt.Y,pre_dt.pre_Y)
 
-
-
-roc_auc_score(pre_dt.Y, pre_dt.pre_Y)
-
-
-pre_Y = ID3_predict(model_DT, test)
-submit = pd.DataFrame({'PassengerId':np.arange(892,1310),'Survived':pre_Y})
+# Submit
+pre_Y = ID3_predict(model_DT,test)
+submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
 submit.ix[:,'Survived'] = submit.ix[:,'Survived'].astype('category')
 submit['Survived'].cat.categories
-
-submit.to_csv('E:/GitHub/Algorithms/submit.csv',index = False)
-
+submit.to_csv('E:/GitHub/Algorithms/submit.csv',index=False)
