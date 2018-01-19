@@ -5,6 +5,7 @@ from math import log
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 import re
+import time
 
 
 # 信息增益算法 -----------------------------------------------------
@@ -186,21 +187,20 @@ def ID3(data,y,delta=0.005):
 
 
 # 预测 ---------------------------------------------------------
-def most_leaf_node(tree):
-    global leaf_node_list
+def most_leaf_node(tree, leaf_node_list):
 
     for value in tree.values():
         if isinstance(value,dict):
-            most_leaf_node(value)
+            most_leaf_node(value, leaf_node_list)
         else:
             leaf_node_list.append(value)
 
     return max(set(leaf_node_list),key=leaf_node_list.count)
 
 
-# def most_class(tree):
-#     leaf_node_list = []
-#     return most_leaf_node(tree)
+def most_class(tree):
+    leaf_node_list = []
+    return most_leaf_node(tree,leaf_node_list)
 
 
 def ID3_predict_one(DTree,row_data):
@@ -223,8 +223,6 @@ def ID3_predict_one(DTree,row_data):
 def ID3_predict(DTree,new_data):
     predict_Y = []
 
-
-    leaf_node_list = []
     most_leaf = most_class(DTree)
 
     for row_data in new_data.iterrows():
@@ -256,9 +254,13 @@ for i in np.arange(len(test.columns)):
 train_train,train_test = train_test_split(train,test_size=0.4,random_state=0)
 
 # 训练
+start = time.clock()
 model_DT = ID3(data=train_train,y='Survived',delta=0.005)
+elapsed = (time.clock() - start)
 # 预测
+start = time.clock()
 pre_Y = ID3_predict(model_DT,train_test)
+elapsed = (time.clock() - start)
 
 # AUC
 pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': pre_Y})
