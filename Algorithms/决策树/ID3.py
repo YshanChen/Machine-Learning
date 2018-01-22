@@ -7,7 +7,6 @@ from sklearn.metrics import roc_auc_score
 import re
 import time
 
-
 # 信息增益算法 -----------------------------------------------------
 def order_Y(data,y):
     df = data.copy()
@@ -95,7 +94,7 @@ def gain_max(df,y):
 
 
 # 训练 ---------------------------------------------------------
-def Decision_Tree(DTree,y,delta,max_class_in_D,par_description=''):
+def Decision_Tree(DTree,y,delta):
     for key,value in DTree.items():
 
         subTree = {}
@@ -107,17 +106,15 @@ def Decision_Tree(DTree,y,delta,max_class_in_D,par_description=''):
             if (len(df.columns) - 1) >= 1 and gain_max(df,y)[1] >= delta:
                 split_feature_name = gain_max(df,y)[0]
 
-                for cat in np.unique(df[split_feature_name]):
+                for cat in df[split_feature_name].cat.categories:
 
                     df_split_temp = df[df[split_feature_name] == cat].drop(split_feature_name,axis=1)
                     description = ' '.join([str(split_feature_name),'=',str(cat)])
 
-                    par_description = description
-
                     if (len(df_split_temp[y].unique()) != 1) and (df_split_temp.empty != True):
 
                         currentTree = {description: df_split_temp}
-                        currentValue = Decision_Tree(currentTree,y,delta,max_class_in_D,par_description)
+                        currentValue = Decision_Tree(currentTree,y,delta)
 
                         subTree.update(currentValue)
 
@@ -127,17 +124,17 @@ def Decision_Tree(DTree,y,delta,max_class_in_D,par_description=''):
                             leaf_node = df_split_temp[y].values[0]
 
                         if (df_split_temp.empty == True):
-                            leaf_node = max_class_in_D
+                            leaf_node = df[y].value_counts().argmax() # 分裂前的最多类别
 
                         subTree.update({description: leaf_node})
 
             elif (len(df.columns) - 1) < 1:
-                leaf_node = df[y].values[0]
+                leaf_node = df[y].value_counts().argmax() # 如果只剩Y一列，取当前多的最多类别
 
                 subTree = leaf_node
 
             elif gain_max(df,y)[1] < delta:
-                leaf_node = max_class_in_D
+                leaf_node = df[y].value_counts().argmax() # 分裂前的最多类别
 
                 subTree = leaf_node
 
@@ -157,13 +154,12 @@ def ID3(data,y,delta=0.005):
 
     DTree = {}
 
-    max_class_in_D = data[y].value_counts().argmax()  # D中实例最大的类
-
     if gain_max(data,y)[1] >= delta:
         split_feature_name = gain_max(data,y)[0]
 
         # 初次分裂
-        for cat in np.unique(data[split_feature_name]):
+        for cat in data[split_feature_name].cat.categories:
+            # print(cat)
 
             # cat = 1
             data_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name,axis=1)
@@ -172,18 +168,18 @@ def ID3(data,y,delta=0.005):
             currentValue = data_split_temp
 
             if gain_max(data_split_temp,y)[1] < delta:
-                currentValue = max_class_in_D
+                currentValue = data_split_temp[y].value_counts().argmax()
 
             if (len(data_split_temp[y].unique()) == 1):
-                currentValue = data[y].values[0]
+                currentValue = data_split_temp[y].unique()[0]
 
             if data_split_temp.empty == True:
-                currentValue = max_class_in_D
+                currentValue = data[y].value_counts().argmax() # 分裂前的最多类别
 
             currentTree = {description: currentValue}
             DTree.update(currentTree)
 
-    return Decision_Tree(DTree,y,delta,max_class_in_D)
+    return Decision_Tree(DTree,y,delta)
 
 
 # 预测 ---------------------------------------------------------
@@ -238,7 +234,14 @@ def ID3_predict(DTree,new_data):
     return (predict_Y)
 
 # --------------------------------- 测试 -------------------------------------- #
-# Kaggle Titanic Data
+# 1.西瓜数据集
+
+data = pd.read_csv('data/watermelon2.0.csv')
+for i in np.arange(len(data.columns)):
+    data.ix[:,i] = data.ix[:,i].astype('category')
+data = data.drop(['id'],axis=1)
+
+# 2.Kaggle Titanic Data
 
 # 读取数据
 train = pd.read_csv('Data/train_fixed.csv')
@@ -274,4 +277,4 @@ pre_Y = ID3_predict(model_DT,test)
 submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
 submit.ix[:,'Survived'] = submit.ix[:,'Survived'].astype('category')
 submit['Survived'].cat.categories
-submit.to_csv('E:/GitHub/Algorithms/submit.csv',index=False)
+submit.to_csv('E:/GitHub/Algorithms/Result/submit.csv',index=False)
