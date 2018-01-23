@@ -141,7 +141,7 @@ def Decision_Tree(DTree,y,delta):
             DTree[key] = subTree
 
         else:
-            print("Data is not a DataFrame!")
+            print("Done!")
 
     return DTree
 
@@ -226,8 +226,8 @@ def ID3_predict(DTree,new_data):
         row_data_series = row_data[1]
 
         pre_y = ID3_predict_one(DTree,row_data_series)
-        if pre_y == None:
-            pre_y = most_leaf
+        # if pre_y == None:
+        #     pre_y = most_leaf     # 问题已修复，应该不会出现NONE了！【待修改】
 
         predict_Y.append(pre_y)
 
@@ -241,8 +241,9 @@ for i in np.arange(len(data.columns)):
     data.ix[:,i] = data.ix[:,i].astype('category')
 data = data.drop(['id'],axis=1)
 
-# 2.Kaggle Titanic Data
+model_DT = ID3(data=data,y='haogua',delta=0.005)
 
+# 2.Kaggle Titanic Data
 # 读取数据
 train = pd.read_csv('Data/train_fixed.csv')
 test = pd.read_csv('Data/test_fixed.csv')
