@@ -250,9 +250,9 @@ def C45_predict(DTree,new_data):
         row_data_series = row_data[1]
 
         pre_y = C45_predict_one(DTree,row_data_series)
-        if pre_y == None:
-            pre_y = most_leaf     # 问题已修复，应该不会出现NONE了！【待修改】
-            print('fix!')
+        # if pre_y == None:
+        #     pre_y = most_leaf     # 问题已修复，应该不会出现NONE了！【待修改】
+        #     print('fix!')
         predict_Y.append(pre_y)
 
     return (predict_Y)
