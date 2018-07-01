@@ -37,8 +37,13 @@ def normal_equation(data):
     theta_number = data.shape[1] - 1 + 1
 
     y = np.mat(data['y']).T
+<<<<<<< HEAD
     x_1 = data.drop(['y'], axis=1).reset_index(drop=True)
     x_0 = pd.DataFrame({'x0': np.repeat(1, sample_number)}).reset_index(drop=True)
+=======
+    x_1 = data.drop(['y'], axis=1)
+    x_0 = pd.DataFrame({'x0': np.repeat(1, sample_number)})
+>>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
     X = np.mat(pd.concat([x_0, x_1], axis=1))
 
     # 逆矩阵 & 转置矩阵
@@ -52,6 +57,26 @@ def normal_equation(data):
 
     return theta_opt
 
+<<<<<<< HEAD
+=======
+# 预测 (不加截距项)
+def predict(X, theta = theta_opt):
+    # 矩阵转换
+    x_1 = X
+    x_0 = pd.DataFrame({'x0': np.repeat(1, X.shape[0])})
+    X = np.mat(pd.concat([x_0, x_1], axis=1))
+
+    # 计算
+    y = X * theta
+
+    return y
+
+# 最优参数
+theta_opt = normal_equation(df_1)
+
+y = predict(X = pd.DataFrame({'x1':[1,2,3,4,5],'x2':[1,3,5,7,9]}))
+
+>>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
 # 3. 梯度下降法 (矩阵形式) (不需要归一化特征) --------------------------------
 # 1）需要归一化特征
 # 2）适合特征数多的情况
@@ -68,8 +93,13 @@ def gradient_descent(data, eta = 0.1, delta = 0.000001):
     theta_number = data.shape[1] - 1 + 1
 
     y = np.mat(data['y']).T
+<<<<<<< HEAD
     x_1 = data.drop(['y'], axis=1).reset_index(drop=True)
     x_0 = pd.DataFrame({'x0': np.repeat(1, sample_number)}).reset_index(drop=True)
+=======
+    x_1 = data.drop(['y'], axis=1)
+    x_0 = pd.DataFrame({'x0': np.repeat(1, sample_number)})
+>>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
     X = np.mat(pd.concat([x_0, x_1], axis=1))
 
     # 参数初始化
@@ -92,8 +122,13 @@ def gradient_descent(data, eta = 0.1, delta = 0.000001):
 # 预测 (不加截距项)
 def predict(X, theta = theta_opt):
     # 矩阵转换
+<<<<<<< HEAD
     x_1 = X.reset_index(drop=True)
     x_0 = pd.DataFrame({'x0': np.repeat(1, X.shape[0])}).reset_index(drop=True)
+=======
+    x_1 = X
+    x_0 = pd.DataFrame({'x0': np.repeat(1, X.shape[0])})
+>>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
     X = np.mat(pd.concat([x_0, x_1], axis=1))
 
     # 计算
@@ -101,6 +136,7 @@ def predict(X, theta = theta_opt):
 
     return y
 
+<<<<<<< HEAD
 # 实际案例 -----------------------------------------------------------------
 # 数据：http://archive.ics.uci.edu/ml/machine-learning-databases/00294/
 # 里面是一个循环发电场的数据，共有9568个样本数据，每个数据有5列，分别是:AT（温度）, V（压力）, AP（湿度）, RH（压强）, PE（输出电力)。
@@ -219,3 +255,9 @@ pic + geom_point()
 
 
 
+=======
+# 最优参数
+theta_opt = gradient_descent(data=df_1)
+
+y = predict(X = pd.DataFrame({'x1':[1,2,3,4,5],'x2':[1,3,5,7,9]}))
+>>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
