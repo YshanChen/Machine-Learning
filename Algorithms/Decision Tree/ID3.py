@@ -7,10 +7,24 @@ from sklearn.metrics import roc_auc_score
 import re
 import time
 
-# Test
+'''
+重构ID3算法，面向对象形式
+
+'''
+
+class ID3(object):
+
+    def __init__(self, params = {'delta': 0.005}):
+        self.params = params
+
+    def fit(self, data, y):
+        self.DTree = ID3(data=data, y=y, delta=self.params['delta'])
+
+    def predict(self, new_data):
+        return ID3_predict(DTree=self.DTree, new_data=new_data)
 
 # 信息增益算法 -----------------------------------------------------
-def order_Y(data,y):
+def order_Y(data, y):
     df = data.copy()
     df['label'] = df[y]
     df = df.drop([y],axis=1)
@@ -79,20 +93,20 @@ def gain(Di_vec,Aik_vec):
 
 
 # 计算每个特征的信息增益，并取最大值
-def gain_max(df,y):
-    gain_vec = np.zeros(shape=((len(df.columns) - 1),1))
+def gain_max(data, y):
+    gain_vec = np.zeros(shape=((len(data.columns) - 1),1))
 
-    feature_split_num = feature_split(df,y)
+    feature_split_num = feature_split(data,y)
 
     # Y类别个数
-    Di_vec = np.array(df[y].value_counts())
+    Di_vec = np.array(data[y].value_counts())
 
     # 计算各特征信息增益
     for i in np.arange(0,len(feature_split_num)):
         gain_vec[i] = gain(Di_vec,feature_split_num[i])
 
     # 选取信息增益最大的特征
-    return [df.columns[gain_vec.argmax()],gain_vec.max()]
+    return [data.columns[gain_vec.argmax()],gain_vec.max()]
 
 
 # 训练 ---------------------------------------------------------
@@ -148,15 +162,15 @@ def Decision_Tree(DTree,y,delta):
     return DTree
 
 
-def ID3(data,y,delta=0.005):
+def ID3(data, y, delta=0.005):
 
     # 标准化数据集
-    data = order_Y(data,y)
+    data = order_Y(data, y)
     y = 'label'
 
     DTree = {}
 
-    if gain_max(data,y)[1] >= delta:
+    if gain_max(data, y)[1] >= delta:
         split_feature_name = gain_max(data,y)[0]
 
         # 初次分裂
@@ -237,13 +251,12 @@ def ID3_predict(DTree,new_data):
 
 # --------------------------------- 测试 -------------------------------------- #
 # 1.西瓜数据集
-
 data = pd.read_csv('data/watermelon2.0.csv')
 for i in np.arange(len(data.columns)):
     data.ix[:,i] = data.ix[:,i].astype('category')
 data = data.drop(['id'],axis=1)
 
-model_DT = ID3(data=data,y='haogua',delta=0.005)
+model_DT = ID3(data=data, y='haogua', delta=0.005)
 
 # 2.Kaggle Titanic Data
 # 读取数据

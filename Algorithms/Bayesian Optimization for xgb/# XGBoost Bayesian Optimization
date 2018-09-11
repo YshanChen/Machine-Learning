@@ -13,8 +13,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import cross_val_score
 from bayes_opt import BayesianOptimization
 
-train = pd.read_csv('../input/train.csv')
-test = pd.read_csv('../input/test.csv')
+train = pd.read_csv(path+ '/train.csv')
+test = pd.read_csv(path+'/test.csv')
 
 y = train.QuoteConversion_Flag.values
 train = train.drop(['QuoteNumber', 'QuoteConversion_Flag'], axis=1)
