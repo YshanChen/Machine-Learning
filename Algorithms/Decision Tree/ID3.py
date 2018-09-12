@@ -23,28 +23,17 @@ class DTree(object):
         else:
             raise ValueError('algorithm must be [''ID3', 'C4.5', 'CART'']')
 
-    def fit(self, data, y):
+    def fit(self, X, y):
 
         if self.algorithm == 'ID3':
-            self.DTree = ID3(data=data, y=y, delta=self.params['delta'])
+            self.DTree = ID3(X=X, y=y, delta=self.params['delta'])
 
     def predict(self, new_data):
 
         if self.algorithm == 'ID3':
             return ID3_predict(DTree=self.DTree, new_data=new_data)
 
-clf = DTree(algorithm='ID3', delta=0.001)
-clf.fit(data=train_train, y='Survived')
-clf.DTree
-clf.predict(new_data=train_test)
-
 # 信息增益算法 -----------------------------------------------------
-def order_Y(data, y):
-    df = data.copy()
-    df['label'] = df[y]
-    df = df.drop([y],axis=1)
-    return df
-
 # 特征分裂向量 （计算每个特征的每个取值对应的Y类别的个数）
 def feature_split(data, y):
     feature_split_dic = {}
@@ -123,7 +112,7 @@ def conditional_entroy(Di_dic, Aik_vec):
         P_Di = np.append(P_Di,(Aik_vec[Aik].sum() / Di_dic.sum()))
 
     # 判断根据特征取值划分的集合的样本个数/总集合样本个数的和为1
-    if P_Di.sum() != 1:
+    if abs(1-P_Di.sum()) >= 0.0001:
         raise ValueError("P_Di sum is not 1 !")
 
     H_DA = (H_Di * P_Di).sum()
@@ -199,24 +188,24 @@ def Decision_Tree(DTree, y, delta):
 
                     else:
 
-                        # 分裂后类别唯一，叶子结点为该类别
+                        # 分裂后类别唯一，叶子结点为该类别 (需要分裂)
                         if (len(df_split_temp[y].unique()) == 1):
                             leaf_node = df_split_temp[y].values[0]
 
-                        # 分裂后为空置，叶子结点为分裂前样本最多的类别
+                        # 分裂后为空置，叶子结点为分裂前样本最多的类别 (不分裂)
                         if (df_split_temp.empty == True):
-                            leaf_node = data[y].value_counts().argmax() # 分裂前的最多类别
+                            leaf_node = data[y].value_counts().idxmax() # 分裂前的最多类别 # todo: 不需要分裂，是否需要放到后面统一格式
 
                         subTree.update({description: leaf_node})
 
             # 停止条件判断：特征变量<1，取分裂前样本最多的类别 (不分裂)
             elif len(X) < 1:
-                leaf_node = data[y].value_counts().argmax()
+                leaf_node = data[y].value_counts().idxmax()
                 subTree = leaf_node
 
             # 停止条件判断：分裂后最大信息增益小于阈值，取分裂前样本最多的类别 (不分裂)
             elif gain_max(data,y)[1] < delta:
-                leaf_node = data[y].value_counts().argmax() # 分裂前的最多类别
+                leaf_node = data[y].value_counts().idxmax() # 分裂前的最多类别
                 subTree = leaf_node
 
             DTree[key] = subTree
@@ -229,10 +218,9 @@ def Decision_Tree(DTree, y, delta):
 
 def ID3(X, y, delta=0.005):
     # Data
-    data = pd.concat([X, y], axis=1)
+    data = pd.concat([X, y], axis=1).rename(str, columns={y.name:'label'})
 
-    # 标准化数据集
-    data = order_Y(data, y)
+    # define y
     y = 'label'
 
     # X
@@ -251,6 +239,7 @@ def ID3(X, y, delta=0.005):
             data_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name,axis=1)
             description = ' '.join([str(split_feature_name),'=',str(cat)])
 
+            # 分裂后数据集
             currentValue = data_split_temp
 
             # 停止分裂判断：如果分裂后最大信息增益依然小于delta，则停止分裂，叶子结点为当前数据集下样本最多的类别
@@ -263,7 +252,7 @@ def ID3(X, y, delta=0.005):
 
             # 停止分裂判断：如果分裂后为空集，则停止分裂，叶子结点为分裂前的最多类别
             if data_split_temp.empty == True:
-                currentValue = data[y].value_counts().argmax() # 分裂前的最多类别
+                currentValue = data[y].value_counts().idxmax() # 分裂前的最多类别
 
             # 绘制树结构字典
             currentTree = {description: currentValue}
@@ -339,32 +328,41 @@ test = pd.read_csv('Data/test_fixed.csv')
 
 # 转为分类型变量
 for i in np.arange(len(train.columns)):
-    train.ix[:,i] = train.ix[:,i].astype('category')
+    train.iloc[:,i] = train.iloc[:,i].astype('category')
 for i in np.arange(len(test.columns)):
-    test.ix[:,i] = test.ix[:,i].astype('category')
+    test.iloc[:,i] = test.iloc[:,i].astype('category')
 
 # 分割数据
 train_train,train_test = train_test_split(train,test_size=0.4,random_state=0)
 
+X_train = train_train.drop(['Survived'], axis=1)
+y_train = train_train['Survived']
+X_test = train_test.drop(['Survived'], axis=1)
+y_test = train_test['Survived']
+
+# 分类器
+clf = DTree(algorithm='ID3', delta=0.001)
 # 训练
 start = time.clock()
-model_DT = ID3(data=train_train,y='Survived',delta=0.005)
+clf.fit(X=X_train, y=y_train)
 elapsed = (time.clock() - start)
+print("Train Model Time : ", elapsed)
 # 预测
 start = time.clock()
-pre_Y = ID3_predict(model_DT,train_test)
+y_test_pred = clf.predict(new_data=X_test)
 elapsed = (time.clock() - start)
+print("Predict Model Time : ", elapsed)
 
 # AUC
-pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': pre_Y})
-pre_dt['Y'].cat.categories
-pre_dt.ix[:,'pre_Y'] = pre_dt.ix[:,'pre_Y'].astype('category')
-pre_dt['pre_Y'].cat.categories
-roc_auc_score(pre_dt.Y,pre_dt.pre_Y)
+pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
+# pre_dt['Y'].cat.categories
+# pre_dt.loc[:,'pre_Y'] = pre_dt.loc[:,'pre_Y'].astype('category')
+# pre_dt['pre_Y'].cat.categories
+print('AUC for Test : ', roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
 
 # Submit
-pre_Y = ID3_predict(model_DT,test)
+pre_Y = clf.predict(new_data=test)
 submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
-submit.ix[:,'Survived'] = submit.ix[:,'Survived'].astype('category')
+submit.loc[:,'Survived'] = submit.loc[:,'Survived'].astype('category')
 submit['Survived'].cat.categories
-submit.to_csv('E:/GitHub/Algorithms/Result/submit.csv',index=False)
+submit.to_csv('Result/submit_20180912.csv',index=False)
