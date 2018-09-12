@@ -12,16 +12,31 @@ import time
 
 '''
 
-class ID3(object):
+class DTree(object):
 
-    def __init__(self, params = {'delta': 0.005}):
-        self.params = params
+    def __init__(self,  algorithm, delta=0.005):
+        self.params = {}
+        self.params['delta'] = delta
+
+        if algorithm in ['ID3', 'C4.5', 'CART']:
+            self.algorithm = algorithm
+        else:
+            raise ValueError('algorithm must be [''ID3', 'C4.5', 'CART'']')
 
     def fit(self, data, y):
-        self.DTree = ID3(data=data, y=y, delta=self.params['delta'])
+
+        if self.algorithm == 'ID3':
+            self.DTree = ID3(data=data, y=y, delta=self.params['delta'])
 
     def predict(self, new_data):
-        return ID3_predict(DTree=self.DTree, new_data=new_data)
+
+        if self.algorithm == 'ID3':
+            return ID3_predict(DTree=self.DTree, new_data=new_data)
+
+clf = DTree(algorithm='ID3', delta=0.001)
+clf.fit(data=train_train, y='Survived')
+clf.DTree
+clf.predict(new_data=train_test)
 
 # 信息增益算法 -----------------------------------------------------
 def order_Y(data, y):
@@ -30,54 +45,74 @@ def order_Y(data, y):
     df = df.drop([y],axis=1)
     return df
 
-# 特征分裂向量
-def feature_split(df,y):
-    feature_split_num = []
+# 特征分裂向量 （计算每个特征的每个取值对应的Y类别的个数）
+def feature_split(data, X, y):
+    feature_split_dic = {}
 
-    # Y类别个数
-    class_categories_num = len(df[y].cat.categories)
+    # X个数
+    X_num = len(X)
 
-    for i in np.arange(0,(len(df.columns) - 1)):
+    # Y类别 & 个数
+    y_classes = data[y].cat.categories
+    y_class_num = len(y_classes)
 
-        # 特征类别个数
-        features_categories_num = len(df[df.columns[i]].cat.categories)
+    # 计算每个特征的每个取值对应的Y类别的个数
+    for feature_name in X:
 
-        Vec = np.zeros(shape=(features_categories_num,class_categories_num))
-        for j in np.arange(0,len(df[df.columns[i]].cat.categories)):
-            a = ((df[df.columns[i]] == df[df.columns[i]].cat.categories[j]) & (df[y] == df[y].cat.categories[0])).sum()
-            b = ((df[df.columns[i]] == df[df.columns[i]].cat.categories[j]) & (df[y] == df[y].cat.categories[1])).sum()
-            Vec[j] = np.array([[a,b]],dtype='float64')
+        # 特征A的取值 & 个数
+        feature_values = data[feature_name].cat.categories
+        feature_values_num = len(feature_values)
 
-        feature_split_num.append(Vec)
+        # 特征的每个取值对应的Y类别的个数
+        Vec = np.zeros(shape=(feature_values_num, y_class_num))
+        for feature_value_index, feature_value in enumerate(feature_values):
+            for y_class_index, y_class in enumerate(y_classes):
+                count_number = ((data[feature_name] == feature_value) & (data[y] == y_class)).sum()
+                Vec[feature_value_index, y_class_index] = count_number
 
-    return feature_split_num
+        # 打印:分裂特征 & 取值对应类别个数
+        # print('Feature Split Name : ', feature_name)
+        # print('Feature Class Number : ', Vec)
+        # print('--------------------------')
+
+        feature_split_dic[feature_name] = Vec
+
+    return feature_split_dic
 
 
-# 数据集D的经验熵
+# 数据集D的经验熵（empirical entropy）
 def entropy(Di_vec):
-    D = Di_vec.sum()
-    if D == 0:
-        p_vec = np.zeros(shape=(np.shape(Di_vec)))
-    else:
-        p_vec = Di_vec / D
-    h_vec = np.array([])
+    # Di_vec => np.array
+    if isinstance(Di_vec, dict):
+        Di_vec = np.array(list(Di_vec.values()))
 
+    # 总集合的个数
+    D_num = Di_vec.sum()
+
+    # 计算：子集个数/总集个数
+    if D_num == 0:
+        p_vec = np.zeros(shape=(len(Di_vec)))
+    else:
+        p_vec = Di_vec / D_num
+
+    # 计算：empirical entropy
+    h_vec = np.array([])
     for p in p_vec:
         if p != 0:
-            h = p * log(p,2)
-            h_vec = np.append(h_vec,h)
+            h = p * log(p, 2)
+            h_vec = np.append(h_vec, h)
         else:
-            h_vec = np.append(h_vec,0)
+            h_vec = np.append(h_vec, 0)  # Todo: 对于不存在特征取值的情况，如何处理
     H = -(h_vec.sum())
 
     return (H)
 
-
 # 特征A对数据集D的条件熵
-def con_entroy(Di_vec,Aik_vec):
+def conditional_entroy(Di_vec, Aik_vec):
     H_Di = np.array([])
     P_Di = np.array([])
     for D_i in Aik_vec:
+        print(D_i)
         H_Di = np.append(H_Di,entropy(D_i))
         P_Di = np.append(P_Di,(D_i.sum() / Di_vec.sum()))
     H_DA = (H_Di * P_Di).sum()
@@ -86,24 +121,31 @@ def con_entroy(Di_vec,Aik_vec):
 
 
 # 特征A的信息增益
-def gain(Di_vec,Aik_vec):
-    gain_A = entropy(Di_vec) - con_entroy(Di_vec,Aik_vec)
+def gain(Di_vec, Aik_vec):
+    gain_A = entropy(Di_vec) - conditional_entroy(Di_vec,Aik_vec)
 
     return (gain_A)
 
 
 # 计算每个特征的信息增益，并取最大值
-def gain_max(data, y):
-    gain_vec = np.zeros(shape=((len(data.columns) - 1),1))
+def gain_max(data, X, y):
+    # 特征变量个数
+    X_number = len(X)
 
-    feature_split_num = feature_split(data,y)
+    # 每个特征的信息增益
+    gain_dic = dict.fromkeys(X, 0)
+
+    # 计算每个特征的每个取值对应的Y类别的个数
+    feature_split_dic = feature_split(data, X, y)
 
     # Y类别个数
-    Di_vec = np.array(data[y].value_counts())
+    Di_dic = dict(data[y].value_counts())
 
-    # 计算各特征信息增益
-    for i in np.arange(0,len(feature_split_num)):
-        gain_vec[i] = gain(Di_vec,feature_split_num[i])
+    # 计算各特征的信息增益
+    for feature_name in feature_split_dic.keys():
+        print(feature_name)
+        print('---------------')
+        gain_vec[i] = gain(Di_vec=Di_dic, Aik_vec=feature_split_vec[feature_name])
 
     # 选取信息增益最大的特征
     return [data.columns[gain_vec.argmax()],gain_vec.max()]
@@ -162,16 +204,21 @@ def Decision_Tree(DTree,y,delta):
     return DTree
 
 
-def ID3(data, y, delta=0.005):
+def ID3(X, y, delta=0.005):
+    # Data
+    data = pd.concat([X, y], axis=1)
 
     # 标准化数据集
     data = order_Y(data, y)
     y = 'label'
 
+    # X
+    X = data.drop([y], axis=1).columns
+
     DTree = {}
 
     if gain_max(data, y)[1] >= delta:
-        split_feature_name = gain_max(data,y)[0]
+        split_feature_name = gain_max(data, X, y)[0]
 
         # 初次分裂
         for cat in data[split_feature_name].cat.categories:
