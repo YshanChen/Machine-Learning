@@ -46,10 +46,11 @@ def order_Y(data, y):
     return df
 
 # 特征分裂向量 （计算每个特征的每个取值对应的Y类别的个数）
-def feature_split(data, X, y):
+def feature_split(data, y):
     feature_split_dic = {}
 
     # X个数
+    X = data.drop([y], axis=1).columns
     X_num = len(X)
 
     # Y类别 & 个数
@@ -64,36 +65,38 @@ def feature_split(data, X, y):
         feature_values_num = len(feature_values)
 
         # 特征的每个取值对应的Y类别的个数
-        Vec = np.zeros(shape=(feature_values_num, y_class_num))
-        for feature_value_index, feature_value in enumerate(feature_values):
+        feature_values_dict = {}
+        for feature_value in feature_values:
+            Vec = np.zeros(shape=(1, y_class_num))[0]
             for y_class_index, y_class in enumerate(y_classes):
                 count_number = ((data[feature_name] == feature_value) & (data[y] == y_class)).sum()
-                Vec[feature_value_index, y_class_index] = count_number
+                Vec[y_class_index] = count_number
+            feature_values_dict[feature_value] = Vec
 
         # 打印:分裂特征 & 取值对应类别个数
         # print('Feature Split Name : ', feature_name)
         # print('Feature Class Number : ', Vec)
         # print('--------------------------')
 
-        feature_split_dic[feature_name] = Vec
+        feature_split_dic[feature_name] = feature_values_dict
 
     return feature_split_dic
 
 
 # 数据集D的经验熵（empirical entropy）
-def entropy(Di_vec):
-    # Di_vec => np.array
-    if isinstance(Di_vec, dict):
-        Di_vec = np.array(list(Di_vec.values()))
+def entropy(Di_dic):
+    # Di_dic => np.array
+    if isinstance(Di_dic, dict):
+        Di_dic = np.array(list(Di_dic.values()))
 
     # 总集合的个数
-    D_num = Di_vec.sum()
+    D_num = Di_dic.sum()
 
     # 计算：子集个数/总集个数
     if D_num == 0:
-        p_vec = np.zeros(shape=(len(Di_vec)))
+        p_vec = np.zeros(shape=(len(Di_dic)))
     else:
-        p_vec = Di_vec / D_num
+        p_vec = Di_dic / D_num
 
     # 计算：empirical entropy
     h_vec = np.array([])
@@ -108,92 +111,112 @@ def entropy(Di_vec):
     return (H)
 
 # 特征A对数据集D的条件熵
-def conditional_entroy(Di_vec, Aik_vec):
+def conditional_entroy(Di_dic, Aik_vec):
+    # Di_dic => np.array
+    if isinstance(Di_dic, dict):
+        Di_dic = np.array(list(Di_dic.values()))
+
     H_Di = np.array([])
     P_Di = np.array([])
-    for D_i in Aik_vec:
-        print(D_i)
-        H_Di = np.append(H_Di,entropy(D_i))
-        P_Di = np.append(P_Di,(D_i.sum() / Di_vec.sum()))
+    for Aik in Aik_vec.keys():
+        H_Di = np.append(H_Di,entropy(Aik_vec[Aik]))
+        P_Di = np.append(P_Di,(Aik_vec[Aik].sum() / Di_dic.sum()))
+
+    # 判断根据特征取值划分的集合的样本个数/总集合样本个数的和为1
+    if P_Di.sum() != 1:
+        raise ValueError("P_Di sum is not 1 !")
+
     H_DA = (H_Di * P_Di).sum()
 
     return (H_DA)
 
-
 # 特征A的信息增益
-def gain(Di_vec, Aik_vec):
-    gain_A = entropy(Di_vec) - conditional_entroy(Di_vec,Aik_vec)
-
+def gain(Di_dic, Aik_vec):
+    gain_A = entropy(Di_dic) - conditional_entroy(Di_dic,Aik_vec)
     return (gain_A)
 
-
 # 计算每个特征的信息增益，并取最大值
-def gain_max(data, X, y):
+def gain_max(data, y):
     # 特征变量个数
+    X = data.drop([y], axis=1).columns
     X_number = len(X)
 
     # 每个特征的信息增益
     gain_dic = dict.fromkeys(X, 0)
 
     # 计算每个特征的每个取值对应的Y类别的个数
-    feature_split_dic = feature_split(data, X, y)
+    feature_split_dic = feature_split(data, y)
 
     # Y类别个数
     Di_dic = dict(data[y].value_counts())
 
     # 计算各特征的信息增益
-    for feature_name in feature_split_dic.keys():
-        print(feature_name)
-        print('---------------')
-        gain_vec[i] = gain(Di_vec=Di_dic, Aik_vec=feature_split_vec[feature_name])
+    if gain_dic.keys() != feature_split_dic.keys():
+        raise ValueError("features are wrong !")
+    for feature_name in gain_dic.keys():
+        gain_dic[feature_name] = gain(Di_dic=Di_dic, Aik_vec=feature_split_dic[feature_name])
 
     # 选取信息增益最大的特征
-    return [data.columns[gain_vec.argmax()],gain_vec.max()]
+    max_gain_feature = max(gain_dic, key=gain_dic.get)
+    max_gain = gain_dic[max_gain_feature]
+
+    return [max_gain_feature, max_gain]
 
 
 # 训练 ---------------------------------------------------------
-def Decision_Tree(DTree,y,delta):
-    for key,value in DTree.items():
+def Decision_Tree(DTree, y, delta):
+    for key, value in DTree.items():
+        # key = key
+        # value = value
 
+        # 子树
         subTree = {}
 
-        if isinstance(value,pd.DataFrame):
-            df = value
+        # 判断是否为叶子结点
+        if isinstance(value, pd.DataFrame):
+            data = value
 
-            # 判断是否信息增益达到阈值
-            if (len(df.columns) - 1) >= 1 and gain_max(df,y)[1] >= delta:
-                split_feature_name = gain_max(df,y)[0]
+            # 特征变量X
+            X = data.drop([y], axis=1).columns
 
-                for cat in df[split_feature_name].cat.categories:
+            # 判断：信息增益是否达到阈值 & 是否特征变量>=1
+            if len(X) >= 1 and gain_max(data, y)[1] >= delta:
+                split_feature_name = gain_max(data, y)[0]
 
-                    df_split_temp = df[df[split_feature_name] == cat].drop(split_feature_name,axis=1)
+                for cat in data[split_feature_name].cat.categories:
+
+                    # 分裂
+                    df_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name,axis=1)
                     description = ' '.join([str(split_feature_name),'=',str(cat)])
 
+                    # 停止条件判断： 分裂后类别是否唯一 & 分裂后是否为空置
                     if (len(df_split_temp[y].unique()) != 1) and (df_split_temp.empty != True):
 
                         currentTree = {description: df_split_temp}
-                        currentValue = Decision_Tree(currentTree,y,delta)
+                        currentValue = Decision_Tree(currentTree, y, delta) # 递归
 
                         subTree.update(currentValue)
 
                     else:
 
+                        # 分裂后类别唯一，叶子结点为该类别
                         if (len(df_split_temp[y].unique()) == 1):
                             leaf_node = df_split_temp[y].values[0]
 
+                        # 分裂后为空置，叶子结点为分裂前样本最多的类别
                         if (df_split_temp.empty == True):
-                            leaf_node = df[y].value_counts().argmax() # 分裂前的最多类别
+                            leaf_node = data[y].value_counts().argmax() # 分裂前的最多类别
 
                         subTree.update({description: leaf_node})
 
-            elif (len(df.columns) - 1) < 1:
-                leaf_node = df[y].value_counts().argmax() # 如果只剩Y一列，取当前多的最多类别
-
+            # 停止条件判断：特征变量<1，取分裂前样本最多的类别 (不分裂)
+            elif len(X) < 1:
+                leaf_node = data[y].value_counts().argmax()
                 subTree = leaf_node
 
-            elif gain_max(df,y)[1] < delta:
-                leaf_node = df[y].value_counts().argmax() # 分裂前的最多类别
-
+            # 停止条件判断：分裂后最大信息增益小于阈值，取分裂前样本最多的类别 (不分裂)
+            elif gain_max(data,y)[1] < delta:
+                leaf_node = data[y].value_counts().argmax() # 分裂前的最多类别
                 subTree = leaf_node
 
             DTree[key] = subTree
@@ -218,31 +241,35 @@ def ID3(X, y, delta=0.005):
     DTree = {}
 
     if gain_max(data, y)[1] >= delta:
-        split_feature_name = gain_max(data, X, y)[0]
+        split_feature_name = gain_max(data, y)[0]
 
         # 初次分裂
         for cat in data[split_feature_name].cat.categories:
             # print(cat)
 
-            # cat = 1
+            # 分裂         cat = 1
             data_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name,axis=1)
             description = ' '.join([str(split_feature_name),'=',str(cat)])
 
             currentValue = data_split_temp
 
-            if gain_max(data_split_temp,y)[1] < delta:
-                currentValue = data_split_temp[y].value_counts().argmax()
+            # 停止分裂判断：如果分裂后最大信息增益依然小于delta，则停止分裂，叶子结点为当前数据集下样本最多的类别
+            if gain_max(data_split_temp, y)[1] < delta:
+                currentValue = data_split_temp[y].value_counts().idxmax()
 
+            # 停止分裂判断：如果分裂后类别唯一，则停止分裂，叶子结点为该类别
             if (len(data_split_temp[y].unique()) == 1):
                 currentValue = data_split_temp[y].unique()[0]
 
+            # 停止分裂判断：如果分裂后为空集，则停止分裂，叶子结点为分裂前的最多类别
             if data_split_temp.empty == True:
                 currentValue = data[y].value_counts().argmax() # 分裂前的最多类别
 
+            # 绘制树结构字典
             currentTree = {description: currentValue}
             DTree.update(currentTree)
 
-    return Decision_Tree(DTree,y,delta)
+    return Decision_Tree(DTree, y, delta)
 
 
 # 预测 ---------------------------------------------------------
