@@ -24,12 +24,10 @@ class DTree(object):
             raise ValueError('algorithm must be [''ID3', 'C4.5', 'CART'']')
 
     def fit(self, X, y):
-
         if self.algorithm == 'ID3':
             self.DTree = ID3(X=X, y=y, delta=self.params['delta'])
 
     def predict(self, new_data):
-
         if self.algorithm == 'ID3':
             return ID3_predict(DTree=self.DTree, new_data=new_data)
 
@@ -262,64 +260,63 @@ def ID3(X, y, delta=0.005):
 
 
 # 预测 ---------------------------------------------------------
+# 获取样本最多的类别
 def most_leaf_node(tree, leaf_node_list):
-
     for value in tree.values():
-        if isinstance(value,dict):
+        if isinstance(value, dict):
             most_leaf_node(value, leaf_node_list)
         else:
             leaf_node_list.append(value)
+    return leaf_node_list
+    # return max(set(leaf_node_list), key=leaf_node_list.count)
 
-    return max(set(leaf_node_list),key=leaf_node_list.count)
-
-
-def most_class(tree):
-    leaf_node_list = []
-    return most_leaf_node(tree,leaf_node_list)
-
-
-def ID3_predict_one(DTree,row_data):
+def ID3_predict_one(DTree, row_data):
     for keys,values in DTree.items():
         T_key = keys
         T_value = values
 
-        T_key_list = re.split('(=|<|<=|>|>=|!=)',T_key)
+        T_key_list = re.split('(=|<|<=|>|>=|!=)', T_key)
         split_feature = T_key_list[0].strip()
         split_feature_oper = T_key_list[1].strip()
         split_feature_value = T_key_list[2].strip()
 
-        if str(row_data[split_feature]) == split_feature_value:
-            if isinstance(T_value,dict):
-                return ID3_predict_one(T_value,row_data)
-            else:
+        # ID3 非二叉树
+        if str(row_data[split_feature]) == split_feature_value: # 符合就继续往下走
+            if isinstance(T_value, dict):  # 还有分支情况
+                return ID3_predict_one(DTree=T_value, row_data=row_data)
+            else:  # 叶子节点情况
                 return T_value
 
+def ID3_predict(DTree, new_data):
+    predict_Y = pd.Series([])
 
-def ID3_predict(DTree,new_data):
-    predict_Y = []
+    # 样本最多的类别
+    leaf_node_list = []
+    most_leaf = most_leaf_node(DTree, leaf_node_list)
 
-    most_leaf = most_class(DTree)
-
-    for row_data in new_data.iterrows():
-
-        row_data_series = row_data[1]
-
-        pre_y = ID3_predict_one(DTree,row_data_series)
+    # 逐条样本预测
+    for row_index, row_data in new_data.iterrows():
+        pre_y = ID3_predict_one(DTree, row_data)
         # if pre_y == None:
         #     pre_y = most_leaf     # 问题已修复，应该不会出现NONE了！【待修改】
+        predict_Y[row_index] = pre_y
 
-        predict_Y.append(pre_y)
-
-    return (predict_Y)
+    return predict_Y
 
 # --------------------------------- 测试 -------------------------------------- #
 # 1.西瓜数据集
 data = pd.read_csv('data/watermelon2.0.csv')
 for i in np.arange(len(data.columns)):
-    data.ix[:,i] = data.ix[:,i].astype('category')
+    data.iloc[:,i] = data.iloc[:,i].astype('category')
 data = data.drop(['id'],axis=1)
 
-model_DT = ID3(data=data, y='haogua', delta=0.005)
+X = data.drop(['haogua'], axis=1)
+y = data['haogua']
+
+clf = DTree(algorithm='ID3', delta=0.001)
+clf.fit(X=X, y=y)
+clf.DTree
+y_test = clf.predict(new_data=X_test)
 
 # 2.Kaggle Titanic Data
 # 读取数据
@@ -333,7 +330,7 @@ for i in np.arange(len(test.columns)):
     test.iloc[:,i] = test.iloc[:,i].astype('category')
 
 # 分割数据
-train_train,train_test = train_test_split(train,test_size=0.4,random_state=0)
+train_train, train_test = train_test_split(train,test_size=0.4,random_state=0)
 
 X_train = train_train.drop(['Survived'], axis=1)
 y_train = train_train['Survived']
@@ -355,9 +352,6 @@ print("Predict Model Time : ", elapsed)
 
 # AUC
 pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
-# pre_dt['Y'].cat.categories
-# pre_dt.loc[:,'pre_Y'] = pre_dt.loc[:,'pre_Y'].astype('category')
-# pre_dt['pre_Y'].cat.categories
 print('AUC for Test : ', roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
 
 # Submit
