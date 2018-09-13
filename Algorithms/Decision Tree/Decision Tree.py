@@ -8,28 +8,32 @@ import re
 import time
 
 '''
-重构ID3算法，面向对象形式
+统一决策树算法框架
 
 '''
 
 class DTree(object):
 
-    def __init__(self,  algorithm, delta=0.005):
+    def __init__(self,  method, delta=0.005):
         self.params = {}
         self.params['delta'] = delta
 
-        if algorithm in ['ID3', 'C4.5', 'CART']:
-            self.algorithm = algorithm
+        if method in ['ID3', 'C4.5', 'CART']:
+            self.method = method
         else:
-            raise ValueError('algorithm must be [''ID3', 'C4.5', 'CART'']')
+            raise ValueError('method must be [''ID3', 'C4.5', 'CART'']')
 
     def fit(self, X, y):
-        if self.algorithm == 'ID3':
-            self.DTree = ID3(X=X, y=y, delta=self.params['delta'])
+        if self.method == 'ID3':
+            self.DTree = ID3(X=X, y=y, method=self.method, delta=self.params['delta'])
+        if self.method == 'C4.5':
+            self.DTree = C4_5(X=X, y=y, method=self.method, delta=self.params['delta'])
 
     def predict(self, new_data):
-        if self.algorithm == 'ID3':
+        if self.method == 'ID3':
             return ID3_predict(DTree=self.DTree, new_data=new_data)
+        if self.method == 'C4.5':
+            return C45_predict(DTree=self.DTree, new_data=new_data)
 
 # 信息增益算法 -----------------------------------------------------
 # 特征分裂向量 （计算每个特征的每个取值对应的Y类别的个数）
@@ -117,13 +121,41 @@ def conditional_entroy(Di_dic, Aik_vec):
 
     return (H_DA)
 
-# 特征A的信息增益
-def gain(Di_dic, Aik_vec):
-    gain_A = entropy(Di_dic) - conditional_entroy(Di_dic,Aik_vec)
-    return (gain_A)
+# 数据集关于特征A的值的熵
+def HaD(Di_dic, Aik_vec):
 
-# 计算每个特征的信息增益，并取最大值
-def gain_max(data, y):
+    HaD_dic = dict.fromkeys(list(Aik_vec.keys()), 0)
+    for a_i in Aik_vec.keys():
+        p_i = Aik_vec[a_i].sum() / sum(Di_dic.values())
+
+        if p_i != 0:
+            HaD_dic[a_i] = p_i * log(p_i,2)
+        else:
+            HaD_dic[a_i] = 0
+
+    HaD = -sum(HaD_dic.values())
+
+    return HaD
+
+# 特征A的信息增益/信息增益比
+def gain(Di_dic, Aik_vec, method):
+    if method == 'ID3':
+        gain_A = entropy(Di_dic) - conditional_entroy(Di_dic,Aik_vec)
+        gain = gain_A
+
+    elif method == 'C4.5':
+        gain_A = entropy(Di_dic) - conditional_entroy(Di_dic, Aik_vec)
+        HaD_ = HaD(Di_dic, Aik_vec)
+        if HaD_ != 0:
+            gain_ratio_A = gain_A / HaD_
+        else:
+            gain_ratio_A = 0
+        gain = gain_ratio_A
+
+    return gain
+
+# 计算每个特征的信息增益/信息增益比，并取最大值
+def gain_max(data, y, method):
     # 特征变量个数
     X = data.drop([y], axis=1).columns
     X_number = len(X)
@@ -140,8 +172,9 @@ def gain_max(data, y):
     # 计算各特征的信息增益
     if gain_dic.keys() != feature_split_dic.keys():
         raise ValueError("features are wrong !")
+
     for feature_name in gain_dic.keys():
-        gain_dic[feature_name] = gain(Di_dic=Di_dic, Aik_vec=feature_split_dic[feature_name])
+        gain_dic[feature_name] = gain(Di_dic=Di_dic, Aik_vec=feature_split_dic[feature_name], method=method)
 
     # 选取信息增益最大的特征
     max_gain_feature = max(gain_dic, key=gain_dic.get)
@@ -213,8 +246,7 @@ def Decision_Tree(DTree, y, delta):
 
     return DTree
 
-
-def ID3(X, y, delta=0.005):
+def ID3(X=X, y=y, method=method, delta=0.005):
     # Data
     data = pd.concat([X, y], axis=1).rename(str, columns={y.name:'label'})
 
@@ -226,7 +258,51 @@ def ID3(X, y, delta=0.005):
 
     DTree = {}
 
-    if gain_max(data, y)[1] >= delta:
+    if gain_max(data, y, method)[1] >= delta:
+        split_feature_name = gain_max(data, y)[0]
+
+        # 初次分裂
+        for cat in data[split_feature_name].cat.categories:
+            # print(cat)
+
+            # 分裂         cat = 1
+            data_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name,axis=1)
+            description = ' '.join([str(split_feature_name),'=',str(cat)])
+
+            # 分裂后数据集
+            currentValue = data_split_temp
+
+            # 停止分裂判断：如果分裂后最大信息增益依然小于delta，则停止分裂，叶子结点为当前数据集下样本最多的类别
+            if gain_max(data_split_temp, y)[1] < delta:
+                currentValue = data_split_temp[y].value_counts().idxmax()
+
+            # 停止分裂判断：如果分裂后类别唯一，则停止分裂，叶子结点为该类别
+            if (len(data_split_temp[y].unique()) == 1):
+                currentValue = data_split_temp[y].unique()[0]
+
+            # 停止分裂判断：如果分裂后为空集，则停止分裂，叶子结点为分裂前的最多类别
+            if data_split_temp.empty == True:
+                currentValue = data[y].value_counts().idxmax() # 分裂前的最多类别
+
+            # 绘制树结构字典
+            currentTree = {description: currentValue}
+            DTree.update(currentTree)
+
+    return Decision_Tree(DTree, y, delta)
+
+def C4_5(X=X, y=y, method=method, delta=0.005):
+    # Data
+    data = pd.concat([X, y], axis=1).rename(str, columns={y.name:'label'})
+
+    # define y
+    y = 'label'
+
+    # X
+    X = data.drop([y], axis=1).columns
+
+    DTree = {}
+
+    if gain_max(data, y, method)[1] >= delta:
         split_feature_name = gain_max(data, y)[0]
 
         # 初次分裂
