@@ -60,7 +60,12 @@ class CART(object):
 
         return predict_Y
 
-    # 特征分裂向量 （计算每个特征的每个取值对应的Y类别的个数）
+    # 特征分裂向量
+    '''
+    # 计算每个特征的每个取值对应的Y类别的个数
+    # 对于categorical和numeric特征都是二分法，categorical特征需要先onehot-encoding
+    # 先排序，再去重，依次选择两个取值中分数进行二分,大于&小等于
+    '''
     def _feature_split(self, data, y):
         feature_split_dic = {}
 
@@ -73,32 +78,45 @@ class CART(object):
         y_class_num = len(y_classes)
 
         # 计算每个特征的每个取值对应的Y类别的个数
-        for feature_name in X:
+        for feature_name in X:  # feature_name = 'density'
 
-            # 特征A的取值 & 个数
-            feature_values = data[feature_name].cat.categories
-            feature_values_num = len(feature_values)
+            # 排序、去重
+            feature_values_series = data[feature_name].sort_values().drop_duplicates(keep='first')
 
-            # 特征的每个取值对应的Y类别的个数
+            # 特征的每个划分点对应的Y类别的个数
             feature_values_dict = {}
-            for feature_value in feature_values:
-                Vec = np.zeros(shape=(1, y_class_num))[0]
+            for feature_value_1, feature_value_2 in zip(feature_values_series[0:], feature_values_series[1:]):
+                feature_values_vec = [0, 0]  # [>a, <=a]
+
+                # print(feature_value_1, feature_value_2)
+                # 中位数作为候选划分数
+                feature_value = round((feature_value_1+feature_value_2)/2, 4)
+
+                Vec_bigger = np.zeros(shape=(1, y_class_num))[0]
+                Vec_lesser = np.zeros(shape=(1, y_class_num))[0]
+
                 for y_class_index, y_class in enumerate(y_classes):
-                    count_number = ((data[feature_name] == feature_value) & (data[y] == y_class)).sum()
-                    Vec[y_class_index] = count_number
-                feature_values_dict[feature_value] = Vec
+                    count_number = ((data[feature_name] > feature_value) & (data[y] == y_class)).sum()
+                    Vec_bigger[y_class_index] = count_number
+                    feature_values_vec[0] = Vec_bigger
+
+                for y_class_index, y_class in enumerate(y_classes):
+                    count_number = ((data[feature_name] <= feature_value) & (data[y] == y_class)).sum()
+                    Vec_lesser[y_class_index] = count_number
+                    feature_values_vec[1] = Vec_lesser
+
+                feature_values_dict[feature_value] = feature_values_vec
 
             # 打印:分裂特征 & 取值对应类别个数
             # print('Feature Split Name : ', feature_name)
-            # print('Feature Class Number : ', Vec)
-            # print('--------------------------')
+            # print('Feature Class Number : ', feature_values_dict)
 
             feature_split_dic[feature_name] = feature_values_dict
 
         return feature_split_dic
 
-    # 数据集D的经验熵
-    def _entropy(self, Di_dic):
+    # 数据集D的基尼指数
+    def _gini_D(self, Di_dic):
         # Di_dic => np.array
         if isinstance(Di_dic, dict):
             Di_dic = np.array(list(Di_dic.values()))
@@ -106,76 +124,46 @@ class CART(object):
         # 总集合的个数
         D_num = Di_dic.sum()
 
-        # 计算：子集个数/总集个数
-        if D_num == 0:
-            p_vec = np.zeros(shape=(len(Di_dic)))
-        else:
-            p_vec = Di_dic / D_num
+        # 计算：数据集的gini
+        g_vec = 0
+        for C_k in Di_dic:
+            g_vec = g_vec + (C_k/D_num)**2
+        gini_D = 1 - g_vec
 
-        # 计算：empirical entropy
-        h_vec = np.array([])
-        for p in p_vec:
-            if p != 0:
-                h = p * log(p, 2)
-                h_vec = np.append(h_vec, h)
-            else:
-                h_vec = np.append(h_vec, 0)  # Todo: 对于不存在特征取值的情况，如何处理
-        H = -(h_vec.sum())
+        return gini_D
 
-        return (H)
-
-    # 特征A对数据集D的条件熵
-    def _conditional_entroy(self, Di_dic, Aik_vec):
+    # 数据集在特征A下的条件下的基尼指数（选择基尼指数最小的作为最优特征及U最优特征点）
+    def _gini_A(self, Di_dic, Aik_dic):
         # Di_dic => np.array
         if isinstance(Di_dic, dict):
             Di_dic = np.array(list(Di_dic.values()))
 
-        H_Di = np.array([])
-        P_Di = np.array([])
-        for Aik in Aik_vec.keys():
-            H_Di = np.append(H_Di, self._entropy(Aik_vec[Aik]))
-            P_Di = np.append(P_Di, (Aik_vec[Aik].sum() / Di_dic.sum()))
+        # 总集合的个数
+        D_num = Di_dic.sum()
 
-        # 判断根据特征取值划分的集合的样本个数/总集合样本个数的和为1
-        if abs(1 - P_Di.sum()) >= 0.0001:
-            raise ValueError("P_Di sum is not 1 !")
+        # 候选划分点
+        A_toSelect = Aik_dic.keys()
 
-        H_DA = (H_Di * P_Di).sum()
+        gini_A_dic = {}
+        for a_i in A_toSelect:
+            # 大于a_i的数据集
+            D_bigger = Aik_dic[a_i][0]
+            # 小等于a_i的数据集
+            D_lesser = Aik_dic[a_i][1]
 
-        return H_DA
+            # 数据集在特征A取该划分点的条件下的基尼指数
+            # gini_set_bigger = self._gini_D(Di_dic=D_bigger)
+            # gini_set_lesser = self._gini_D(Di_dic=D_lesser)
+            gini_set_bigger = _gini_D(self=[], Di_dic=D_bigger)
+            gini_set_lesser = _gini_D(self=[], Di_dic=D_lesser)
+            gini_D_A = (D_bigger.sum() / D_num * gini_set_bigger) + (D_lesser.sum() / D_num * gini_set_lesser)
 
-    # 数据集关于特征A的值的熵
-    def _HaD(self, Di_dic, Aik_vec):
+            gini_A_dic[a_i] = gini_D_A
 
-        HaD_dic = dict.fromkeys(list(Aik_vec.keys()), 0)
-        for a_i in Aik_vec.keys():
-            p_i = Aik_vec[a_i].sum() / sum(Di_dic.values())
+        # 选取基尼指数最小的划分点为该特征的最优划分点，相应基尼指数为该特征的最优基尼指数
+        gini_A_opt = [min(gini_A_dic, key=gini_A_dic.get), min(gini_A_dic.values())]
 
-            if p_i != 0:
-                HaD_dic[a_i] = p_i * log(p_i, 2)
-            else:
-                HaD_dic[a_i] = 0
-
-        HaD = -sum(HaD_dic.values())
-
-        return HaD
-
-    # 特征A的信息增益/信息增益比
-    def _gain(self, Di_dic, Aik_vec):
-        if self.method == 'ID3':
-            gain_A = self._entropy(Di_dic) - self._conditional_entroy(Di_dic, Aik_vec)
-            gain = gain_A
-
-        elif self.method == 'C4.5':
-            gain_A = self._entropy(Di_dic) - self._conditional_entroy(Di_dic, Aik_vec)
-            HaD_ = self._HaD(Di_dic, Aik_vec)
-            if HaD_ != 0:
-                gain_ratio_A = gain_A / HaD_
-            else:
-                gain_ratio_A = 0
-            gain = gain_ratio_A
-
-        return gain
+        return gini_A_opt
 
     # 计算每个特征的信息增益/信息增益比，并取最大值
     def _gain_max(self, data, y):
@@ -187,7 +175,7 @@ class CART(object):
         gain_dic = dict.fromkeys(X, 0)
 
         # 计算每个特征的每个取值对应的Y类别的个数
-        feature_split_dic = self._feature_split(data, y)
+        feature_split_dic = self._feature_split(data, y) # feature_split_dic = _feature_split(self=[],data=data, y=y)
 
         # Y类别个数
         Di_dic = dict(data[y].value_counts())
@@ -196,14 +184,22 @@ class CART(object):
         if gain_dic.keys() != feature_split_dic.keys():
             raise ValueError("features are wrong !")
 
-        for feature_name in gain_dic.keys():
-            gain_dic[feature_name] = self._gain(Di_dic=Di_dic, Aik_vec=feature_split_dic[feature_name])
+        for feature_name in gain_dic.keys():  # feature_name = 'chugan_1'
+            gain_dic[feature_name] = _gini_A(self=[], Di_dic=Di_dic, Aik_dic=feature_split_dic[feature_name])
+            # gain_dic[feature_name] = self._gini_A(Di_dic=Di_dic, Aik_dic=feature_split_dic[feature_name])
 
         # 选取信息增益最大的特征
-        max_gain_feature = max(gain_dic, key=gain_dic.get)
-        max_gain = gain_dic[max_gain_feature]
+        min_gini = 2 # 基尼小等于1
+        min_gini_feature = ''
+        min_gini_feature_point = ''
+        for feature, value in gain_dic.items():
+            if value[1] < min_gini: # Todo:Or <= ?
+                min_gini = value[1]
+                min_gini_feature = feature
+                min_gini_feature_point = value[0]
 
-        return [max_gain_feature, max_gain]
+        # 返回 划分特征以及最优划分点
+        return [min_gini_feature, min_gini_feature_point]
 
     # 训练 ---------------------------------------------------------
     def _C4_5(self, X, y):
@@ -394,16 +390,30 @@ class CART(object):
 
 # --------------------------------- 测试 -------------------------------------- #
 # 1.西瓜数据集
+# One-hot encoding for categorical columns with get_dummies
+def one_hot_encoder(data, categorical_features, nan_as_category=True):
+    original_columns = list(data.columns)
+    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
+    new_columns = [c for c in data.columns if c not in original_columns]
+    del original_columns
+    return data, new_columns
+
 data = pd.read_csv('data/watermelon2.0.csv')
-for i in np.arange(len(data.columns)):
-    data.iloc[:,i] = data.iloc[:,i].astype('category')
 data = data.drop(['id'],axis=1)
+# 增加连续型变量
+data['density'] = [0.403, 0.556, 0.481, 0.666, 0.243, 0.437, 0.634, 0.556, 0.593, 0.774, 0.343, 0.639, 0.657, 0.666, 0.608, 0.719, 0.697]
 
-# # 增加连续型变量
-# data['density'] = [0.243, 0.245, 0.343, 0.36, 0.403, 0.437, 0.481, 0.556, 0.593, 0.608, 0.634, 0.639, 0.657, 0.666, 0.697, 0.719, 0.774]
+# onehot
+data, cates = one_hot_encoder(data=data,
+                              categorical_features=['seze', 'gendi', 'qiaosheng', 'wenli', 'qibu', 'chugan'],
+                              nan_as_category=False)
 
+data['haogua'] = data['haogua'].astype('category')
 X = data.drop(['haogua'], axis=1)
 y = data['haogua']
+data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
+y = 'label'
+
 
 clf = DTree(method='C4.5', delta=0.01)
 clf.fit(X=X, y=y)
