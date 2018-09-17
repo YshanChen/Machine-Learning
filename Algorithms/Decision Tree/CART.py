@@ -165,8 +165,8 @@ class CART(object):
 
         return gini_A_opt
 
-    # 计算每个特征的信息增益/信息增益比，并取最大值
-    def _gain_max(self, data, y):
+    # 计算每个特征的在每个划分点下的基尼指数，选取最小的基尼指数对应的特征以及最优划分点
+    def _gini_min(self, data, y):
         # 特征变量个数
         X = data.drop([y], axis=1).columns
         X_number = len(X)
@@ -175,7 +175,8 @@ class CART(object):
         gain_dic = dict.fromkeys(X, 0)
 
         # 计算每个特征的每个取值对应的Y类别的个数
-        feature_split_dic = self._feature_split(data, y) # feature_split_dic = _feature_split(self=[],data=data, y=y)
+        # feature_split_dic = self._feature_split(data, y)
+        feature_split_dic = _feature_split(self=[], data=data, y=y)
 
         # Y类别个数
         Di_dic = dict(data[y].value_counts())
@@ -198,11 +199,11 @@ class CART(object):
                 min_gini_feature = feature
                 min_gini_feature_point = value[0]
 
-        # 返回 划分特征以及最优划分点
-        return [min_gini_feature, min_gini_feature_point]
+        # 返回 划分特征, 最优划分点, 最小基尼指数
+        return [min_gini_feature, min_gini_feature_point, min_gini]
 
     # 训练 ---------------------------------------------------------
-    def _C4_5(self, X, y):
+    def fit(self, X, y):
         # Data
         data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
 
@@ -214,82 +215,53 @@ class CART(object):
 
         DTree = {}
 
-        gain_list = self._gain_max(data, y)
-        if gain_list[1] >= self.params['delta']:
-            split_feature_name = gain_list[0]
+        gini_list = _gini_min(self=[], data=data, y=y)  # _gini_min
+        min_gini_feature = gini_list[0]
+        min_gini_feature_point = gini_list[1]
+        min_gini = gini_list[2]
+        # gini_list = _gini_min(self=[], data=data, y=y)
+
+        # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 类别取值<=1停止分裂； 数据集为空停止分裂；
+        if min_gini > self.params['min_impurity_split'] or data[y].unique() > 1 or data.shape[0] <= 0:       # gini_list[2] >= 0.05
+            split_feature_name = min_gini_feature
+            split_feature_point = min_gini_feature_point
 
             # 初次分裂
-            for cat in data[split_feature_name].cat.categories:
-                # print(cat)
+            print([split_feature_name, split_feature_point])
+            for opera in ['>', '<=']:
+                if opera == '>': # 大于分裂点
+                    data_split_temp = data[data[split_feature_name] > split_feature_point].drop(split_feature_name, axis=1)
+                else: # 小等于分裂点
+                    data_split_temp = data[data[split_feature_name] <= split_feature_point].drop(split_feature_name, axis=1)
+                description = ' '.join([str(split_feature_name), opera, str(split_feature_point)])
 
-                # 分裂         cat = 1
-                data_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name, axis=1)
-                description = ' '.join([str(split_feature_name), '=', str(cat)])
-
-                # 分裂后数据集
-                currentValue = data_split_temp
-
-                # 停止分裂判断 (1)：如果分裂后最大信息增益依然小于delta，则停止分裂，叶子结点为当前数据集下样本最多的类别
-                if self._gain_max(data_split_temp, y)[1] < self.params['delta']:
-                    currentValue = data_split_temp[y].value_counts().idxmax()
-
-                # 停止分裂判断 (2)：如果分裂后类别唯一，则停止分裂，叶子结点为该类别
+                # 停止分裂判断：如果分裂后类别唯一，则停止分裂，叶子结点为该类别
                 if len(data_split_temp[y].unique()) == 1:
                     currentValue = data_split_temp[y].unique()[0]
 
-                # 停止分裂判断 (3)：如果分裂后为空集，则停止分裂，叶子结点为分裂前的最多类别
-                if data_split_temp.empty == True:
-                    currentValue = data[y].value_counts().idxmax()  # 分裂前的最多类别
-
-                # 绘制树结构字典
-                currentTree = {description: currentValue}
-                DTree.update(currentTree)
-
-        return self._Decision_Tree(DTree=DTree, y=y)
-
-    def _ID3(self, X, y):
-        # Data
-        data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
-
-        # define y
-        y = 'label'
-
-        # X
-        X = data.drop([y], axis=1).columns
-
-        DTree = {}
-
-        if self._gain_max(data, y)[1] >= self.params['delta']:
-            split_feature_name = self._gain_max(data, y)[0]
-
-            # 初次分裂
-            for cat in data[split_feature_name].cat.categories:
-                # print(cat)
-
-                # 分裂         cat = 1
-                data_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name, axis=1)
-                description = ' '.join([str(split_feature_name), '=', str(cat)])
-
-                # 分裂后数据集
-                currentValue = data_split_temp
-
-                # 停止分裂判断：如果分裂后最大信息增益依然小于delta，则停止分裂，叶子结点为当前数据集下样本最多的类别
-                if self._gain_max(data_split_temp, y)[1] < self.params['delta']:
+                # 停止分裂判断：叶子结点的最小样本个数小于阈值，不再继续分裂，此分裂有效。叶子结点为样本最多的类别 (min_samples_leaf)
+                if data_split_temp.shape[0] <= 2:  # min_samples_leaf
                     currentValue = data_split_temp[y].value_counts().idxmax()
 
-                # 停止分裂判断：如果分裂后类别唯一，则停止分裂，叶子结点为该类别
-                if (len(data_split_temp[y].unique()) == 1):
-                    currentValue = data_split_temp[y].unique()[0]
+                # 停止分裂判断：没有更多的特征可用于分裂
+                if data_split_temp.shape[1] <= 1:
+                    currentValue = data_split_temp[y].value_counts().idxmax()
 
-                # 停止分裂判断：如果分裂后为空集，则停止分裂，叶子结点为分裂前的最多类别
-                if data_split_temp.empty == True:
-                    currentValue = data[y].value_counts().idxmax()  # 分裂前的最多类别
-
-                # 绘制树结构字典
+                # 符合继续分裂条件
+                currentValue = data_split_temp
                 currentTree = {description: currentValue}
                 DTree.update(currentTree)
 
-        return self._Decision_Tree(DTree=DTree, y=y)
+        elif data.shape[0] <= 0:
+            print("Data set is None !")
+
+        elif  data[y].unique() <= 1:
+            print("Y only one value !")
+
+        elif min_gini <= self.params['min_impurity_split']:
+            print("initial min_gini <= min_impurity_split !")
+
+        return self._growTree(DTree=DTree, y=y)
 
     def _Decision_Tree(self, DTree, y):
         for key, value in DTree.items():
@@ -411,6 +383,8 @@ data, cates = one_hot_encoder(data=data,
 data['haogua'] = data['haogua'].astype('category')
 X = data.drop(['haogua'], axis=1)
 y = data['haogua']
+
+
 data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
 y = 'label'
 
