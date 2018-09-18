@@ -1,8 +1,8 @@
 # -*- coding: utf8 -*-
-'''
+"""
 Created on 2018/09/18
-@author: Eason.Chen
-'''
+@author: Yshan.Chen
+"""
 
 import numpy as np
 import pandas as pd
@@ -13,19 +13,19 @@ import re
 import time
 
 class CART(object):
-    '''
+    """
     CART算法
     1. 二叉树结构，所以对于categorical和numeric特征都是二分法
     2. categorical特征需要先onehot encoding
 
-    min_impurity_split: 节点划分最小不纯度，如果不纯度小于该值则停止分裂。 △
+    min_impurity_split: 节点划分最小不纯度，如果不纯度小等于该值则停止分裂。 △ Threshold for early stopping in tree growth. A node will split if its impurity is above the threshold, otherwise it is a leaf.
     max_features: 划分时考虑的最大特征数 △
     max_depth: 决策树最大深度 △
     min_samples_split: 内部节点再划分所需最小样本数
     min_samples_leaf: 叶子节点最少样本数 △
     min_weight_fraction_leaf: 叶子节点最小的样本权重和 (缺失值处理涉及)
     max_leaf_nodes: 最大叶子节点数
-    '''
+    """
 
     def __init__(self,
                  min_impurity_split=0.005,
@@ -204,129 +204,227 @@ class CART(object):
         # 返回 划分特征, 最优划分点, 最小基尼指数
         return [min_gini_feature, min_gini_feature_point, min_gini]
 
+    # 排除取值唯一的变量
+    def _drop_unique_column(self, data):
+        del_unique_columns = []
+        for col in [x for x in data.columns if x != y]:
+            if len(data[col].unique()) <= 1:
+                del_unique_columns.append(col)
+        data = data.drop(del_unique_columns, axis=1)
+        return data
+
     # 训练 ---------------------------------------------------------
-    def fit(self, X, y):
-        # Data
-        data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
+    """
+    树的生成。
+    - 分裂后特征是否还能继续用于分裂问题，取决于分裂后是否取值唯一，是否还有区分能力。
+      对于离散型且onehot处理过的分裂特征，分裂后其特征取值唯一，故能够删除；
+      对于连续型分裂特征，分裂后依然可能取值不唯一，故可能保留用于继续分裂；
+      非分裂特征随着分裂可能也出现取值唯一情况，故每次分裂后均根据区分能力删除取值唯一的特征；
+    """
+    def _CART(self, X, y, DTree={}):
+        # 初次分裂
+        if DTree == {}:
+            # Data
+            data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
+            data['label'] = data['label'].astype('category')
 
-        # define y
-        y = 'label'
+            # define y
+            y = 'label'
 
-        # X
-        X = data.drop([y], axis=1).columns
+            # 排除取值唯一的变量
+            data = self._drop_unique_column(data) # data = _drop_unique_column(self=[], data=data)
 
-        DTree = {}
+            # X
+            X = data.drop([y], axis=1).columns
 
-        gini_list = _gini_min(self=[], data=data, y=y)  # _gini_min
-        min_gini_feature = gini_list[0]
-        min_gini_feature_point = gini_list[1]
-        min_gini = gini_list[2]
-        # gini_list = _gini_min(self=[], data=data, y=y)
+            # 生成树(干)
+            DTree = {}
 
-        # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 类别取值<=1停止分裂； 数据集为空停止分裂；
-        if min_gini > self.params['min_impurity_split'] or data[y].unique() > 1 or data.shape[0] <= 0:       # gini_list[2] >= 0.05
-            split_feature_name = min_gini_feature
-            split_feature_point = min_gini_feature_point
+            # 计算划分特征，最优划分点，最小基尼指数
+            gini_list = _gini_min(self=[], data=data, y=y)
+            min_gini_feature = gini_list[0]
+            min_gini_feature_point = gini_list[1]
+            min_gini = gini_list[2]
+            # gini_list = _gini_min(self=[], data=data, y=y)
 
-            # 初次分裂
-            print([split_feature_name, split_feature_point])
-            for opera in ['>', '<=']:
-                if opera == '>': # 大于分裂点
-                    data_split_temp = data[data[split_feature_name] > split_feature_point].drop(split_feature_name, axis=1)
-                else: # 小等于分裂点
-                    data_split_temp = data[data[split_feature_name] <= split_feature_point].drop(split_feature_name, axis=1)
-                description = ' '.join([str(split_feature_name), opera, str(split_feature_point)])
+            # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值<=1停止分裂； 3. 数据集为空停止分裂；
+            if min_gini > self.params['min_impurity_split'] or data[y].unique() > 1 or data.shape[0] <= 0:       # gini_list[2] > 0.05
+                splitting_feature = min_gini_feature
+                splitting_point = min_gini_feature_point
 
-                # 停止分裂判断：如果分裂后类别唯一，则停止分裂，叶子结点为该类别
-                if len(data_split_temp[y].unique()) == 1:
-                    currentValue = data_split_temp[y].unique()[0]
+                # 初次分裂
+                print([splitting_feature, splitting_point])
+                for opera in ['>', '<=']:
+                    if opera == '>': # 大于分裂点
+                        data_split_temp = data[data[splitting_feature] > splitting_point]
+                        # data_split_temp = self._drop_unique_column(data_split_temp) # 分裂后删除取值唯一的特征
+                        data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
+                    else: # 小等于分裂点
+                        data_split_temp = data[data[splitting_feature] <= splitting_point]
+                        # data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
+                        data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
+                    description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
 
-                # 停止分裂判断：叶子结点的最小样本个数小于阈值，不再继续分裂，此分裂有效。叶子结点为样本最多的类别 (min_samples_leaf)
-                if data_split_temp.shape[0] <= 2:  # min_samples_leaf
-                    currentValue = data_split_temp[y].value_counts().idxmax()
+                    # 继续分裂
+                    if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and  data_split_temp.shape[1] > 1: #Todo min_samples_leaf
+                        currentTree = {description: data_split_temp}
+                        currentValue = self._Decision_Tree(currentTree, y)
+                        DTree.update(currentValue)
 
-                # 停止分裂判断：没有更多的特征可用于分裂
-                if data_split_temp.shape[1] <= 1:
-                    currentValue = data_split_temp[y].value_counts().idxmax()
+                    # 停止分裂
+                    else:
+                        # 如果分裂后类别唯一，则停止分裂，叶子结点为该类别
+                        if len(data_split_temp[y].unique()) == 1:
+                            currentValue = data_split_temp[y].unique()[0]
 
-                # 符合继续分裂条件
-                currentValue = data_split_temp
-                currentTree = {description: currentValue}
-                DTree.update(currentTree)
+                        # 停止分裂判断：叶子结点的最小样本个数小于阈值，不再继续分裂，此分裂有效。叶子结点为样本最多的类别 (min_samples_leaf)
+                        elif data_split_temp.shape[0] <= 3:  # min_samples_leaf
+                            currentValue = data_split_temp[y].value_counts().idxmax()
 
-        elif data.shape[0] <= 0:
-            print("Data set is None !")
+                        # 停止分裂判断：没有可用于分裂的特征
+                        elif data_split_temp.shape[1] <= 1:
+                            currentValue = data_split_temp[y].value_counts().idxmax()
 
-        elif  data[y].unique() <= 1:
-            print("Y only one value !")
+                        # 符合继续分裂条件
+                        currentTree = {description: currentValue}
+                        DTree.update(currentTree)
 
-        elif min_gini <= self.params['min_impurity_split']:
-            print("initial min_gini <= min_impurity_split !")
-
-        return self._growTree(DTree=DTree, y=y)
-
-    def _Decision_Tree(self, DTree, y):
-        for key, value in DTree.items():
-            print(key)
-            # key = key
-            # value = value value = DTree[key]
-
-            # 子树
-            subTree = {}
-
-            # 判断是否为叶子结点
-            if isinstance(value, pd.DataFrame):
-                data = value
-
-                # 特征变量X
-                X = data.drop([y], axis=1).columns
-
-                # 判断：信息增益是否达到阈值 & 是否特征变量>=1
-                gain_list = self._gain_max(data, y)
-                if len(X) > 1 and gain_list[1] >= self.params['delta']:
-                    split_feature_name = gain_list[0]
-
-                    for cat in data[split_feature_name].cat.categories:
-
-                        # 分裂  cat = 0
-                        df_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name, axis=1)
-                        description = ' '.join([str(split_feature_name), '=', str(cat)])
-
-                        # 停止条件判断： 分裂后类别是否唯一 & 分裂后是否为空置
-                        if (len(df_split_temp[y].unique()) != 1) and (df_split_temp.empty != True):
-                            currentTree = {description: df_split_temp}
-                            currentValue = self._Decision_Tree(currentTree, y)  # 递归
-                            subTree.update(currentValue)
-
-                        else:
-                            # 分裂后类别唯一，叶子结点为该类别 (需要分裂)
-                            if (len(df_split_temp[y].unique()) == 1):
-                                leaf_node = df_split_temp[y].values[0]
-
-                            # 分裂后为空置，叶子结点为分裂前样本最多的类别 (不分裂)
-                            if (df_split_temp.empty == True):
-                                leaf_node = data[y].value_counts().idxmax()  # 分裂前的最多类别 # todo: 不需要分裂，是否需要放到后面统一格式
-
-                            subTree.update({description: leaf_node})
-
-                # 停止条件判断：特征变量<=1，取样本最多的类别 (不分裂)
-                elif len(X) <= 1:
-                    print('特征变量<=1')
-                    leaf_node = data[y].value_counts().idxmax()
-                    subTree = leaf_node
-
-                # 停止条件判断：分裂后最大信息增益小于阈值，取分裂前样本最多的类别 (不分裂)
-                elif self._gain_max(data, y)[1] < self.params['delta']:
-                    print('分裂后最大信息增益小于阈值')
-                    leaf_node = data[y].value_counts().idxmax()  # 分裂前的最多类别
-                    subTree = leaf_node
-
-                DTree[key] = subTree
-
+            # 不分裂
             else:
-                print("Done!")
+                elif data.shape[0] <= 0: # 空集
+                    print("Data set is None !")
+
+                elif data[y].unique() <= 1: # 类别值唯一
+                    print("Y only one value !")
+
+                elif min_gini <= self.params['min_impurity_split']: # 小等于基尼指数阈值
+                    print("initial min_gini <= min_impurity_split !")
+
+            CART_tree = self._CART(X=X, y=y, DTree=DTree)
+
+        # 第二次及之后的分裂
+        else:
+            for key, value in DTree.items():
+                print(key)
+                print("-------------------------------")
+                # key = key key = 'wenli_1 > 0.5'
+                # value = value value = DTree[key]
+
+                # 子树
+                subTree = {}
+
+                # 判断是否为叶子结点
+                if isinstance(value, pd.DataFrame):
+                    data = value
+
+                    # 特征变量X
+                    X = data.drop([y], axis=1).columns
+
+                    # 计算划分特征，最优划分点，最小基尼指数
+                    # gini_list = self._gain_min(data, y)
+                    gini_list = _gini_min(self=[], data=data, y=y)
+                    min_gini_feature = gini_list[0]
+                    min_gini_feature_point = gini_list[1]
+                    min_gini = gini_list[2]
+
+                    # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值<=1停止分裂； 3. 数据集为空停止分裂；
+                    if min_gini > 0.05 or data[y].unique() > 1 or data.shape[0] <= 0: # Todo: self.params['min_impurity_split'] = 0.05
+                        print([splitting_feature, splitting_point])
+                        splitting_feature = gini_list[0]
+                        splitting_point = gini_list[1]
+
+                        for opera in ['>', '<=']:
+                            if opera == '>':  # 大于分裂点
+                                data_split_temp = data[data[splitting_feature] > splitting_point]
+                                # data_split_temp = self._drop_unique_column(data_split_temp) # 分裂后删除取值唯一的特征
+                                data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
+                            else:  # 小等于分裂点
+                                data_split_temp = data[data[splitting_feature] <= splitting_point]
+                                # data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
+                                data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
+                            description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
+
+                            # 继续分裂-递归
+                            if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and  data_split_temp.shape[1] > 1 # Todo:min_samples_leaf
+                                currentTree = {description: data_split_temp}
+                                currentValue = self._CART(X=X, y=y, DTree=currentTree)  # 递归
+                                subTree.update(currentValue)
+
+                            else:
+                                # 停止分裂判断：如果分裂后类别唯一，则停止分裂，叶子结点为该类别
+                                if len(data_split_temp[y].unique()) == 1:
+                                    currentValue = data_split_temp[y].unique()[0]
+
+                                # 停止分裂判断：叶子结点的最小样本个数小于阈值，不再继续分裂，此分裂有效。叶子结点为样本最多的类别 (min_samples_leaf)
+                                elif data_split_temp.shape[0] <= 3:  # Todo:min_samples_leaf
+                                    currentValue = data_split_temp[y].value_counts().idxmax()
+
+                                # 停止分裂判断：没有可用于分裂的特征
+                                elif data_split_temp.shape[1] <= 1:
+                                    currentValue = data_split_temp[y].value_counts().idxmax()
+
+                                # 符合继续分裂条件
+                                currentTree = {description: currentValue}
+                                subTree.update(currentTree)
+
+                    else:
+                        if min_gini > 0.05: # Todo: self.params['min_impurity_split'] = 0.05
+
+                        elif data[y].unique() > 1:
+
+                        elif data.shape[0] <= 1:
+                            print('特征变量<=1')
+                            leaf_node = data[y].value_counts().idxmax()
+                            subTree = leaf_node
+
+
+
+
+
+
+                        for cat in data[split_feature_name].cat.categories:
+
+                            # 分裂  cat = 0
+                            df_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name, axis=1)
+                            description = ' '.join([str(split_feature_name), '=', str(cat)])
+
+                            # 停止条件判断： 分裂后类别是否唯一 & 分裂后是否为空置
+                            if (len(df_split_temp[y].unique()) != 1) and (df_split_temp.empty != True):
+                                currentTree = {description: df_split_temp}
+                                currentValue = self._Decision_Tree(currentTree, y)  # 递归
+                                subTree.update(currentValue)
+
+                            else:
+                                # 分裂后类别唯一，叶子结点为该类别 (需要分裂)
+                                if (len(df_split_temp[y].unique()) == 1):
+                                    leaf_node = df_split_temp[y].values[0]
+
+                                # 分裂后为空置，叶子结点为分裂前样本最多的类别 (不分裂)
+                                if (df_split_temp.empty == True):
+                                    leaf_node = data[
+                                        y].value_counts().idxmax()  # 分裂前的最多类别 # todo: 不需要分裂，是否需要放到后面统一格式
+
+                                subTree.update({description: leaf_node})
+
+                    # 停止条件判断：特征变量<=1，取样本最多的类别 (不分裂)
+                    elif len(X) <= 1:
+                        print('特征变量<=1')
+                        leaf_node = data[y].value_counts().idxmax()
+                        subTree = leaf_node
+
+                    # 停止条件判断：分裂后最大信息增益小于阈值，取分裂前样本最多的类别 (不分裂)
+                    elif self._gain_max(data, y)[1] < self.params['delta']:
+                        print('分裂后最大信息增益小于阈值')
+                        leaf_node = data[y].value_counts().idxmax()  # 分裂前的最多类别
+                        subTree = leaf_node
+
+                    DTree[key] = subTree
+
+                else:
+                    print("Done!")
 
         return DTree
+
 
 
     # 预测 ---------------------------------------------------------
@@ -389,7 +487,6 @@ data, cates = one_hot_encoder(data=data,
                               categorical_features=['seze', 'gendi', 'qiaosheng', 'wenli', 'qibu', 'chugan'],
                               nan_as_category=False)
 
-data['haogua'] = data['haogua'].astype('category')
 X = data.drop(['haogua'], axis=1)
 y = data['haogua']
 
