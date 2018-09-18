@@ -3,7 +3,8 @@
 
 主要参考：
 1. 李航《统计学习方法》
-2. 周志华《机器学习》    
+2. 周志华《机器学习》
+3. 《ESL》
 
 ## 数据集
 1. 数据集为Kaggle的Titanic数据集：https://www.kaggle.com/c/titanic/data
