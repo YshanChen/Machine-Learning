@@ -1,4 +1,9 @@
 # -*- coding: utf8 -*-
+'''
+Created on 2018/09/18
+@author: Eason.Chen
+'''
+
 import numpy as np
 import pandas as pd
 from math import log
@@ -7,23 +12,20 @@ from sklearn.metrics import roc_auc_score
 import re
 import time
 
-'''
-CART
-
-1. 二叉树结构，所以对于categorical和numeric特征都是二分法
-2. categorical特征需要先onehot encoding
-
-min_impurity_split: 节点划分最小不纯度，如果不纯度小于该值则停止分裂。 △
-max_features: 划分时考虑的最大特征数 △
-max_depth: 决策树最大深度 △
-min_samples_split: 内部节点再划分所需最小样本数 
-min_samples_leaf: 叶子节点最少样本数 △
-min_weight_fraction_leaf: 叶子节点最小的样本权重和 (缺失值处理涉及)
-max_leaf_nodes: 最大叶子节点数
-
-'''
-
 class CART(object):
+    '''
+    CART算法
+    1. 二叉树结构，所以对于categorical和numeric特征都是二分法
+    2. categorical特征需要先onehot encoding
+
+    min_impurity_split: 节点划分最小不纯度，如果不纯度小于该值则停止分裂。 △
+    max_features: 划分时考虑的最大特征数 △
+    max_depth: 决策树最大深度 △
+    min_samples_split: 内部节点再划分所需最小样本数
+    min_samples_leaf: 叶子节点最少样本数 △
+    min_weight_fraction_leaf: 叶子节点最小的样本权重和 (缺失值处理涉及)
+    max_leaf_nodes: 最大叶子节点数
+    '''
 
     def __init__(self,
                  min_impurity_split=0.005,
@@ -359,6 +361,13 @@ class CART(object):
     #         raise ValueError('There is no classifier for predicting !')
     #     else:
     #         return predict(DTree=self.DTree, new_data=new_data)
+
+
+def main():
+
+if __name__ == '__main__':
+    main()
+
 
 # --------------------------------- 测试 -------------------------------------- #
 # 1.西瓜数据集
