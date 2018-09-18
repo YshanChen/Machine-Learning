@@ -2,6 +2,17 @@
 """
 Created on 2018/09/18
 @author: Yshan.Chen
+
+Commit：
+1. 完成基尼指数函数；
+2. 完成连续值的处理；
+3. 完成生成树；
+
+Todo List:
+1. 缺失值的处理；
+2. 树剪枝（前后）；
+3. 预测；
+
 """
 
 import numpy as np
@@ -207,7 +218,7 @@ class CART(object):
     # 排除取值唯一的变量
     def _drop_unique_column(self, data):
         del_unique_columns = []
-        for col in [x for x in data.columns if x != y]:
+        for col in [x for x in data.columns if x != 'label']:
             if len(data[col].unique()) <= 1:
                 del_unique_columns.append(col)
         data = data.drop(del_unique_columns, axis=1)
@@ -221,7 +232,9 @@ class CART(object):
       对于连续型分裂特征，分裂后依然可能取值不唯一，故可能保留用于继续分裂；
       非分裂特征随着分裂可能也出现取值唯一情况，故每次分裂后均根据区分能力删除取值唯一的特征；
     """
-    def _CART(self, X, y, DTree={}):
+    # t = _growTree(self=[], X=X, y=y, DTree={})
+    # t = _growTree(self=[], X=X_train, y=y_train, DTree={})
+    def _growTree(self, X, y, DTree={}):
         # 初次分裂
         if DTree == {}:
             # Data
@@ -232,7 +245,7 @@ class CART(object):
             y = 'label'
 
             # 排除取值唯一的变量
-            data = self._drop_unique_column(data) # data = _drop_unique_column(self=[], data=data)
+            data = _drop_unique_column(self=[], data=data) #  Todo:data = self._drop_unique_column(data)
 
             # X
             X = data.drop([y], axis=1).columns
@@ -248,13 +261,13 @@ class CART(object):
             # gini_list = _gini_min(self=[], data=data, y=y)
 
             # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值<=1停止分裂； 3. 数据集为空停止分裂；
-            if min_gini > self.params['min_impurity_split'] or data[y].unique() > 1 or data.shape[0] <= 0:       # gini_list[2] > 0.05
+            if min_gini > 0.05 and len(data[y].unique()) > 1 and data.shape[0] > 0:       # Todo:self.params['min_impurity_split']
                 splitting_feature = min_gini_feature
                 splitting_point = min_gini_feature_point
 
                 # 初次分裂
                 print([splitting_feature, splitting_point])
-                for opera in ['>', '<=']:
+                for opera in ['>', '<=']: # opera = '<='
                     if opera == '>': # 大于分裂点
                         data_split_temp = data[data[splitting_feature] > splitting_point]
                         # data_split_temp = self._drop_unique_column(data_split_temp) # 分裂后删除取值唯一的特征
@@ -266,10 +279,10 @@ class CART(object):
                     description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
 
                     # 继续分裂
-                    if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and  data_split_temp.shape[1] > 1: #Todo min_samples_leaf
+                    if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and data_split_temp.shape[1] > 1: # Todo:min_samples_leaf
                         currentTree = {description: data_split_temp}
-                        currentValue = self._Decision_Tree(currentTree, y)
-                        DTree.update(currentValue)
+                        sub_subTree = _growTree(self=[], X=X, y=y, DTree=currentTree) # sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
+                        DTree.update(sub_subTree)
 
                     # 停止分裂
                     else:
@@ -291,24 +304,22 @@ class CART(object):
 
             # 不分裂
             else:
-                elif data.shape[0] <= 0: # 空集
+                if data.shape[0] <= 0: # 空集
                     print("Data set is None !")
 
-                elif data[y].unique() <= 1: # 类别值唯一
+                elif len(data[y].unique()) <= 1: # 类别值唯一
                     print("Y only one value !")
 
-                elif min_gini <= self.params['min_impurity_split']: # 小等于基尼指数阈值
+                elif min_gini <= 0.05: # 小等于基尼指数阈值 Todo: self.params['min_impurity_split']
                     print("initial min_gini <= min_impurity_split !")
-
-            CART_tree = self._CART(X=X, y=y, DTree=DTree)
 
         # 第二次及之后的分裂
         else:
             for key, value in DTree.items():
                 print(key)
                 print("-------------------------------")
-                # key = key key = 'wenli_1 > 0.5'
-                # value = value value = DTree[key]
+                key = key # key = 'wenli_1 > 0.5'  key = 'Age_1 <= 0.5'
+                value = value  # value = DTree[key]
 
                 # 子树
                 subTree = {}
@@ -327,11 +338,13 @@ class CART(object):
                     min_gini_feature_point = gini_list[1]
                     min_gini = gini_list[2]
 
-                    # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值<=1停止分裂； 3. 数据集为空停止分裂；
-                    if min_gini > 0.05 or data[y].unique() > 1 or data.shape[0] <= 0: # Todo: self.params['min_impurity_split'] = 0.05
+                    # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值<=1停止分裂；
+                    if min_gini > 0.05 and len(data[y].unique()) > 1: # Todo: self.params['min_impurity_split'] = 0.05
+                        splitting_feature = min_gini_feature
+                        splitting_point = min_gini_feature_point
+
+                        # 初次分裂
                         print([splitting_feature, splitting_point])
-                        splitting_feature = gini_list[0]
-                        splitting_point = gini_list[1]
 
                         for opera in ['>', '<=']:
                             if opera == '>':  # 大于分裂点
@@ -345,21 +358,22 @@ class CART(object):
                             description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
 
                             # 继续分裂-递归
-                            if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and  data_split_temp.shape[1] > 1 # Todo:min_samples_leaf
+                            if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and data_split_temp.shape[1] > 1: # Todo: min_samples_leaf
                                 currentTree = {description: data_split_temp}
-                                currentValue = self._CART(X=X, y=y, DTree=currentTree)  # 递归
-                                subTree.update(currentValue)
+                                sub_subTree = _growTree(self=[], X=X, y=y, DTree=currentTree)  # 递归   Todo: sub_subTree = self._CART(X=X, y=y, DTree=currentTree)
+                                subTree.update(sub_subTree)
 
+                            # 停止分裂判断，此分裂有效
                             else:
-                                # 停止分裂判断：如果分裂后类别唯一，则停止分裂，叶子结点为该类别
+                                # 如果分裂后类别唯一，则停止分裂，叶子结点为该类别
                                 if len(data_split_temp[y].unique()) == 1:
                                     currentValue = data_split_temp[y].unique()[0]
 
-                                # 停止分裂判断：叶子结点的最小样本个数小于阈值，不再继续分裂，此分裂有效。叶子结点为样本最多的类别 (min_samples_leaf)
+                                # 叶子结点的最小样本个数小于阈值，不再继续分裂。叶子结点为样本最多的类别 (min_samples_leaf)
                                 elif data_split_temp.shape[0] <= 3:  # Todo:min_samples_leaf
                                     currentValue = data_split_temp[y].value_counts().idxmax()
 
-                                # 停止分裂判断：没有可用于分裂的特征
+                                # 没有可用于分裂的特征
                                 elif data_split_temp.shape[1] <= 1:
                                     currentValue = data_split_temp[y].value_counts().idxmax()
 
@@ -367,64 +381,19 @@ class CART(object):
                                 currentTree = {description: currentValue}
                                 subTree.update(currentTree)
 
+                    # 停止分裂判断，此次不分裂
                     else:
-                        if min_gini > 0.05: # Todo: self.params['min_impurity_split'] = 0.05
+                        if min_gini <= 0.05: # Todo: self.params['min_impurity_split'] = 0.05
+                            subTree = data[y].value_counts().idxmax()
 
-                        elif data[y].unique() > 1:
-
-                        elif data.shape[0] <= 1:
-                            print('特征变量<=1')
-                            leaf_node = data[y].value_counts().idxmax()
-                            subTree = leaf_node
-
-
-
-
-
-
-                        for cat in data[split_feature_name].cat.categories:
-
-                            # 分裂  cat = 0
-                            df_split_temp = data[data[split_feature_name] == cat].drop(split_feature_name, axis=1)
-                            description = ' '.join([str(split_feature_name), '=', str(cat)])
-
-                            # 停止条件判断： 分裂后类别是否唯一 & 分裂后是否为空置
-                            if (len(df_split_temp[y].unique()) != 1) and (df_split_temp.empty != True):
-                                currentTree = {description: df_split_temp}
-                                currentValue = self._Decision_Tree(currentTree, y)  # 递归
-                                subTree.update(currentValue)
-
-                            else:
-                                # 分裂后类别唯一，叶子结点为该类别 (需要分裂)
-                                if (len(df_split_temp[y].unique()) == 1):
-                                    leaf_node = df_split_temp[y].values[0]
-
-                                # 分裂后为空置，叶子结点为分裂前样本最多的类别 (不分裂)
-                                if (df_split_temp.empty == True):
-                                    leaf_node = data[
-                                        y].value_counts().idxmax()  # 分裂前的最多类别 # todo: 不需要分裂，是否需要放到后面统一格式
-
-                                subTree.update({description: leaf_node})
-
-                    # 停止条件判断：特征变量<=1，取样本最多的类别 (不分裂)
-                    elif len(X) <= 1:
-                        print('特征变量<=1')
-                        leaf_node = data[y].value_counts().idxmax()
-                        subTree = leaf_node
-
-                    # 停止条件判断：分裂后最大信息增益小于阈值，取分裂前样本最多的类别 (不分裂)
-                    elif self._gain_max(data, y)[1] < self.params['delta']:
-                        print('分裂后最大信息增益小于阈值')
-                        leaf_node = data[y].value_counts().idxmax()  # 分裂前的最多类别
-                        subTree = leaf_node
+                        elif len(data[y].unique()) <= 1:
+                            subTree = data[y].value_counts().idxmax()
 
                     DTree[key] = subTree
 
-                else:
-                    print("Done!")
+            print("-- Leaf Node --")
 
         return DTree
-
 
 
     # 预测 ---------------------------------------------------------
@@ -505,11 +474,19 @@ y_test = clf.predict(new_data=X)
 train = pd.read_csv('Data/train_fixed.csv')
 test = pd.read_csv('Data/test_fixed.csv')
 
-# 转为分类型变量
-for i in np.arange(len(train.columns)):
-    train.iloc[:,i] = train.iloc[:,i].astype('category')
-for i in np.arange(len(test.columns)):
-    test.iloc[:,i] = test.iloc[:,i].astype('category')
+# onehot
+def one_hot_encoder(data, categorical_features, nan_as_category=True):
+    original_columns = list(data.columns)
+    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
+    new_columns = [c for c in data.columns if c not in original_columns]
+    del original_columns
+    return data, new_columns
+train, cates = one_hot_encoder(data=train,
+                              categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+                              nan_as_category=False)
+test, cates = one_hot_encoder(data=test,
+                              categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+                              nan_as_category=False)
 
 # 分割数据
 train_train, train_test = train_test_split(train,test_size=0.4,random_state=0)
