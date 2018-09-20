@@ -78,6 +78,9 @@ class CART(object):
     # 计算每个特征的每个取值对应的Y类别的个数
     # 对于categorical和numeric特征都是二分法，categorical特征需要先onehot-encoding
     # 先排序，再去重，依次选择两个取值中分数进行二分,大于&小等于
+    
+    V2.0 缺失值的处理，需要增加样本权重
+    
     '''
     def _feature_split(self, data, y):
         feature_split_dic = {}
