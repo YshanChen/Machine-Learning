@@ -13,22 +13,30 @@ import time
 delta: 即sklearn库中的min_impurity_split, 节点划分最小不纯度，如果不纯度小于该值则停止分裂。
 
 '''
+# Todo list :
+# 1. 连续值的处理：见CART算法
+# 2. 缺失值的处理：见CART算法
+# 3. 剪枝
 
 class DTree(object):
 
     def __init__(self,  method, delta=0.005):
         self.params = {'delta': delta}
+        self._init_tree={}
         self.DTree = {}
-        if method in ['ID3', 'C4.5', 'CART']:
+        self._DTree_depth = 1
+        if method in ['ID3', 'C4.5']:
             self.method = method
         else:
-            raise ValueError('method must be [''ID3', 'C4.5', 'CART'']')
+            raise ValueError('method must be [''ID3', 'C4.5'']')
 
     def fit(self, X, y):
         if self.method == 'ID3':
-            self.DTree = self._ID3(X=X, y=y)
+            self._init_tree = self._ID3(X=X, y=y)
         if self.method == 'C4.5':
-            self.DTree = self._C4_5(X=X, y=y)
+            self._init_tree = self._C4_5(X=X, y=y)
+
+        self.DTree = self._pruning()
 
     def predict(self, new_data): # 逐条预测，未实现并行化
         if self.DTree == {}:
@@ -348,6 +356,26 @@ class DTree(object):
 
         return DTree
 
+    def _tree_data(self, DTree):
+
+
+
+    def _pruning(DTree=clf.DTree, depth):
+        for keys, values in DTree.items():
+            T_key = keys
+            T_value = values
+            print('depth: ', depth)
+            print(T_key, ':',T_value)
+
+            if isinstance(T_value, dict):  # 还有分支情况
+                depth =+ 1
+                print(_pruning(DTree=T_value, depth=depth))
+            else:  # 叶子节点情况
+                print(T_value)
+                print('-------------------------------------------------')
+
+
+
 
     # 预测 ---------------------------------------------------------
     # 获取样本最多的类别
@@ -388,9 +416,6 @@ data = pd.read_csv('data/watermelon2.0.csv')
 for i in np.arange(len(data.columns)):
     data.iloc[:,i] = data.iloc[:,i].astype('category')
 data = data.drop(['id'],axis=1)
-
-# # 增加连续型变量
-# data['density'] = [0.243, 0.245, 0.343, 0.36, 0.403, 0.437, 0.481, 0.556, 0.593, 0.608, 0.634, 0.639, 0.657, 0.666, 0.697, 0.719, 0.774]
 
 X = data.drop(['haogua'], axis=1)
 y = data['haogua']
@@ -435,6 +460,9 @@ print("Predict Model Time : ", elapsed)
 # AUC
 pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
 print('AUC for Test : ', roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
+
+# Tree
+print(clf.DTree)
 
 # Submit
 pre_Y = clf.predict(new_data=test.iloc[342:344,:])   # Parch = 9， 训练集未出现， 以该集合下最大类别代替
