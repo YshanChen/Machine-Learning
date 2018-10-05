@@ -9,7 +9,7 @@ Commit：
 3. 完成生成树；
 
 Todo List:
-1. 缺失值的处理（参见ID3算法）；1)如何在属性值缺失情况下特征选择？ 2)给定分裂特征，若样本在该特征上缺失，如何对样本进行划分？
+1. 缺失值的处理；1)如何在属性值缺失情况下特征选择？ 2)给定分裂特征，若样本在该特征上缺失，如何对样本进行划分？
 2. 树剪枝； CART算法的剪枝与ID3和C4.5不同
 3. 预测；
 
@@ -51,7 +51,7 @@ class CART(object):
         self.DTree = {}
 
     def fit(self, X, y):
-        self.DTree = self._fit(X=X, y=y)
+        self.DTree = self._Decision_Tree(X=X, y=y)
 
     def predict(self, new_data): # 逐条预测，未实现并行化
         if self.DTree == {}:
@@ -168,10 +168,10 @@ class CART(object):
             D_lesser = Aik_dic[a_i][1]
 
             # 数据集在特征A取该划分点的条件下的基尼指数
-            # gini_set_bigger = self._gini_D(Di_dic=D_bigger)
-            # gini_set_lesser = self._gini_D(Di_dic=D_lesser)
-            gini_set_bigger = _gini_D(self=[], Di_dic=D_bigger)
-            gini_set_lesser = _gini_D(self=[], Di_dic=D_lesser)
+            gini_set_bigger = self._gini_D(Di_dic=D_bigger)
+            gini_set_lesser = self._gini_D(Di_dic=D_lesser)
+            # gini_set_bigger = _gini_D(self=[], Di_dic=D_bigger)
+            # gini_set_lesser = _gini_D(self=[], Di_dic=D_lesser)
             gini_D_A = (D_bigger.sum() / D_num * gini_set_bigger) + (D_lesser.sum() / D_num * gini_set_lesser)
 
             gini_A_dic[a_i] = gini_D_A
@@ -191,8 +191,7 @@ class CART(object):
         gain_dic = dict.fromkeys(X, 0)
 
         # 计算每个特征的每个取值对应的Y类别的个数
-        # feature_split_dic = self._feature_split(data, y)
-        feature_split_dic = _feature_split(self=[], data=data, y=y)
+        feature_split_dic = self._feature_split(data, y)
 
         # Y类别个数
         Di_dic = dict(data[y].value_counts())
@@ -202,8 +201,7 @@ class CART(object):
             raise ValueError("features are wrong !")
 
         for feature_name in gain_dic.keys():  # feature_name = 'chugan_1'
-            gain_dic[feature_name] = _gini_A(self=[], Di_dic=Di_dic, Aik_dic=feature_split_dic[feature_name])
-            # gain_dic[feature_name] = self._gini_A(Di_dic=Di_dic, Aik_dic=feature_split_dic[feature_name])
+            gain_dic[feature_name] = self._gini_A(Di_dic=Di_dic, Aik_dic=feature_split_dic[feature_name])
 
         # 选取信息增益最大的特征
         min_gini = 2 # 基尼小等于1
@@ -237,7 +235,7 @@ class CART(object):
     """
     # t = _growTree(self=[], X=X, y=y, DTree={})
     # t = _growTree(self=[], X=X_train, y=y_train, DTree={})
-    def _growTree(self, X, y, DTree={}):
+    def _Decision_Tree(self, X, y, DTree={}):
         # 初次分裂
         if DTree == {}:
             # Data
@@ -248,7 +246,7 @@ class CART(object):
             y = 'label'
 
             # 排除取值唯一的变量
-            data = _drop_unique_column(self=[], data=data) #  Todo:data = self._drop_unique_column(data)
+            data = self._drop_unique_column(data)
 
             # X
             X = data.drop([y], axis=1).columns
@@ -257,11 +255,10 @@ class CART(object):
             DTree = {}
 
             # 计算划分特征，最优划分点，最小基尼指数
-            gini_list = _gini_min(self=[], data=data, y=y)
+            gini_list = self._gini_min(data=data, y=y)
             min_gini_feature = gini_list[0]
             min_gini_feature_point = gini_list[1]
             min_gini = gini_list[2]
-            # gini_list = _gini_min(self=[], data=data, y=y)
 
             # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值<=1停止分裂； 3. 数据集为空停止分裂；
             if min_gini > 0.05 and len(data[y].unique()) > 1 and data.shape[0] > 0:       # Todo:self.params['min_impurity_split']
@@ -273,18 +270,17 @@ class CART(object):
                 for opera in ['>', '<=']: # opera = '<='
                     if opera == '>': # 大于分裂点
                         data_split_temp = data[data[splitting_feature] > splitting_point]
-                        # data_split_temp = self._drop_unique_column(data_split_temp) # 分裂后删除取值唯一的特征
-                        data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
+                        data_split_temp = self._drop_unique_column(data_split_temp) # 分裂后删除取值唯一的特征
                     else: # 小等于分裂点
                         data_split_temp = data[data[splitting_feature] <= splitting_point]
-                        # data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
-                        data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
+                        data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
                     description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
 
                     # 继续分裂
                     if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and data_split_temp.shape[1] > 1: # Todo:min_samples_leaf
                         currentTree = {description: data_split_temp}
-                        sub_subTree = _growTree(self=[], X=X, y=y, DTree=currentTree) # sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
+                        sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
+                        # sub_subTree = _growTree(self=[], X=X, y=y, DTree=currentTree) # sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
                         DTree.update(sub_subTree)
 
                     # 停止分裂
@@ -335,8 +331,7 @@ class CART(object):
                     X = data.drop([y], axis=1).columns
 
                     # 计算划分特征，最优划分点，最小基尼指数
-                    # gini_list = self._gain_min(data, y)
-                    gini_list = _gini_min(self=[], data=data, y=y)
+                    gini_list = self._gini_min(data, y)
                     min_gini_feature = gini_list[0]
                     min_gini_feature_point = gini_list[1]
                     min_gini = gini_list[2]
@@ -352,18 +347,17 @@ class CART(object):
                         for opera in ['>', '<=']:
                             if opera == '>':  # 大于分裂点
                                 data_split_temp = data[data[splitting_feature] > splitting_point]
-                                # data_split_temp = self._drop_unique_column(data_split_temp) # 分裂后删除取值唯一的特征
-                                data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
+                                data_split_temp = self._drop_unique_column(data_split_temp) # 分裂后删除取值唯一的特征
                             else:  # 小等于分裂点
                                 data_split_temp = data[data[splitting_feature] <= splitting_point]
-                                # data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
-                                data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
+                                data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
                             description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
 
                             # 继续分裂-递归
                             if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and data_split_temp.shape[1] > 1: # Todo: min_samples_leaf
                                 currentTree = {description: data_split_temp}
-                                sub_subTree = _growTree(self=[], X=X, y=y, DTree=currentTree)  # 递归   Todo: sub_subTree = self._CART(X=X, y=y, DTree=currentTree)
+                                sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
+                                # sub_subTree = _growTree(self=[], X=X, y=y, DTree=currentTree)  # 递归   Todo: sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
                                 subTree.update(sub_subTree)
 
                             # 停止分裂判断，此分裂有效
@@ -462,12 +456,10 @@ data, cates = one_hot_encoder(data=data,
 X = data.drop(['haogua'], axis=1)
 y = data['haogua']
 
+# data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
+# y = 'label'
 
-data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
-y = 'label'
-
-
-clf = CART(method='C4.5', delta=0.01)
+clf = CART()
 clf.fit(X=X, y=y)
 clf.DTree
 y_test = clf.predict(new_data=X)
@@ -500,7 +492,7 @@ X_test = train_test.drop(['Survived'], axis=1)
 y_test = train_test['Survived']
 
 # 分类器
-clf = DTree(method='C4.5', delta=0.01)
+clf = CART()
 # 训练
 start = time.clock()
 clf.fit(X=X_train, y=y_train)
