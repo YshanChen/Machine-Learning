@@ -8,21 +8,18 @@ import re
 import time
 
 '''
-统一决策树算法框架
-
 delta: 即sklearn库中的min_impurity_split, 节点划分最小不纯度，如果不纯度小于该值则停止分裂。
 
+Todo list:
+1. 连续值的处理：见CART算法(已完成)
+2. 缺失值的处理：见CART算法
+3. 剪枝
 '''
-# Todo list :
-# 1. 连续值的处理：见CART算法
-# 2. 缺失值的处理：见CART算法
-# 3. 剪枝
 
 class DTree(object):
 
     def __init__(self,  method, delta=0.005):
         self.params = {'delta': delta}
-        self._init_tree={}
         self.DTree = {}
         self._DTree_depth = 1
         if method in ['ID3', 'C4.5']:
@@ -32,11 +29,9 @@ class DTree(object):
 
     def fit(self, X, y):
         if self.method == 'ID3':
-            self._init_tree = self._ID3(X=X, y=y)
+            self.DTree = self._ID3(X=X, y=y)
         if self.method == 'C4.5':
-            self._init_tree = self._C4_5(X=X, y=y)
-
-        self.DTree = self._pruning()
+            self.DTree = self._C4_5(X=X, y=y)
 
     def predict(self, new_data): # 逐条预测，未实现并行化
         if self.DTree == {}:
@@ -356,27 +351,6 @@ class DTree(object):
 
         return DTree
 
-    def _tree_data(self, DTree):
-
-
-
-    def _pruning(DTree=clf.DTree, depth):
-        for keys, values in DTree.items():
-            T_key = keys
-            T_value = values
-            print('depth: ', depth)
-            print(T_key, ':',T_value)
-
-            if isinstance(T_value, dict):  # 还有分支情况
-                depth =+ 1
-                print(_pruning(DTree=T_value, depth=depth))
-            else:  # 叶子节点情况
-                print(T_value)
-                print('-------------------------------------------------')
-
-
-
-
     # 预测 ---------------------------------------------------------
     # 获取样本最多的类别
     def _most_leaf_node(self, tree, leaf_node_list):
@@ -403,12 +377,6 @@ class DTree(object):
                     return self._predict_one_by_one(DTree=T_value, row_data=row_data)
                 else:  # 叶子节点情况
                     return T_value
-
-    # def predict(self, new_data):
-    #     if self.DTree == {}:
-    #         raise ValueError('There is no classifier for predicting !')
-    #     else:
-    #         return predict(DTree=self.DTree, new_data=new_data)
 
 # --------------------------------- 测试 -------------------------------------- #
 # 1.西瓜数据集
