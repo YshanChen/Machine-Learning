@@ -11,8 +11,8 @@ Commit：
 Todo List:
 1. 缺失值的处理；1)如何在属性值缺失情况下特征选择？ 2)给定分裂特征，若样本在该特征上缺失，如何对样本进行划分？
 2. 树剪枝； CART算法的剪枝与ID3和C4.5不同
-3. 预测；
-
+3. 预测-逐条；
+4. 预测-并行化
 """
 
 import numpy as np
@@ -68,7 +68,7 @@ class CART(object):
             # row_data = new_data.iloc[0, ]
             pre_y = self._predict_one_by_one(DTree=self.DTree, row_data=row_data)
             # if pre_y == None:
-            #     pre_y = most_leaf     # 出现NONE，强制赋值为初始样本样本数最多的类别！【待修改】
+            #     pre_y = most_leaf     # 出现NONE，强制赋值为"初始样本"样本数最多的类别！【待修改】
             predict_Y[row_index] = pre_y
 
         return predict_Y
@@ -407,18 +407,28 @@ class CART(object):
         for keys, values in DTree.items():
             T_key = keys
             T_value = values
+            # print(T_key)
+            # print(T_value)
+            # print('---------------------------------------')
 
-            T_key_list = re.split('(=|<|<=|>|>=|!=)', T_key)
+            T_key_list = re.split('(>|<=)', T_key)
             split_feature = T_key_list[0].strip()
             split_feature_oper = T_key_list[1].strip()
-            split_feature_value = T_key_list[2].strip()
+            split_feature_value = float(T_key_list[2].strip())
 
-            # ID3 非二叉树
-            if str(row_data[split_feature]) == split_feature_value:  # 符合就继续往下走
-                if isinstance(T_value, dict):  # 还有分支情况
-                    return self._predict_one_by_one(DTree=T_value, row_data=row_data)
-                else:  # 叶子节点情况
-                    return T_value
+            # CART 二叉树
+            if split_feature_oper == '>':
+                if row_data[split_feature] > split_feature_value: # 符合就继续往下走
+                    if isinstance(T_value, dict):  # 还有分支情况
+                        return self._predict_one_by_one(DTree=T_value, row_data=row_data)
+                    else:  # 叶子节点情况
+                        return T_value
+            if split_feature_oper == '<=':
+                if row_data[split_feature] <= split_feature_value: # 符合就继续往下走
+                    if isinstance(T_value, dict):  # 还有分支情况
+                        return self._predict_one_by_one(DTree=T_value, row_data=row_data)
+                    else:  # 叶子节点情况
+                        return T_value
 
     # def predict(self, new_data):
     #     if self.DTree == {}:
@@ -509,8 +519,8 @@ pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
 print('AUC for Test : ', roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
 
 # Submit
-pre_Y = clf.predict(new_data=test.iloc[342:344,:])   # Parch = 9， 训练集未出现， 以该集合下最大类别代替
+pre_Y = clf.predict(new_data=test)   # Parch = 9， 训练集未出现， 以该集合下最大类别代替
 submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
 submit.loc[:,'Survived'] = submit.loc[:,'Survived'].astype('category')
 submit['Survived'].cat.categories
-submit.to_csv('Result/submit_20180914.csv', index=False)
+submit.to_csv('Result/submit_20181005.csv', index=False)
