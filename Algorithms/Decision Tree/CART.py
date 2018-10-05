@@ -9,8 +9,8 @@ Commit：
 3. 完成生成树；
 
 Todo List:
-1. 缺失值的处理；1)如何在属性值缺失情况下特征选择？ 2)给定分裂特征，若样本在该特征上缺失，如何对样本进行划分？
-2. 树剪枝（前后）；
+1. 缺失值的处理（参见ID3算法）；1)如何在属性值缺失情况下特征选择？ 2)给定分裂特征，若样本在该特征上缺失，如何对样本进行划分？
+2. 树剪枝； CART算法的剪枝与ID3和C4.5不同
 3. 预测；
 
 """
@@ -467,7 +467,7 @@ data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
 y = 'label'
 
 
-clf = DTree(method='C4.5', delta=0.01)
+clf = CART(method='C4.5', delta=0.01)
 clf.fit(X=X, y=y)
 clf.DTree
 y_test = clf.predict(new_data=X)
