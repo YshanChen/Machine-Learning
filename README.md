@@ -18,8 +18,8 @@
 1. CART
 
 ## 待完成：
-1. 线性回归
-2. 逻辑回归
+1. Linear Regression
+2. Logistic Regression
 3. lasso
 4. ridge
 5. KNN
