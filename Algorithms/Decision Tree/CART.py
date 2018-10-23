@@ -3,16 +3,23 @@
 Created on 2018/09/18
 @author: Yshan.Chen
 
+Update: 2018/10/23
+
 Commit：
 1. 完成基尼指数函数；
 2. 完成连续值的处理；
 3. 完成生成树；
+4. 加入停止条件：
+    1) max_depth
+    2) min_impurity_split
+    3) max_features
+    4) min_samples_split
+    5) min_samples_leaf
 
 Todo List:
 1. 缺失值的处理；1)如何在属性值缺失情况下特征选择？ 2)给定分裂特征，若样本在该特征上缺失，如何对样本进行划分？
 2. 树剪枝； CART算法的剪枝与ID3和C4.5不同
-3. 预测-逐条；
-4. 预测-并行化
+3. 预测-并行化
 """
 
 import numpy as np
@@ -29,10 +36,10 @@ class CART(object):
     1. 二叉树结构，所以对于categorical和numeric特征都是二分法
     2. categorical特征需要先onehot encoding
 
-    min_impurity_split: 节点划分最小不纯度，如果不纯度小等于该值则停止分裂。 △ Threshold for early stopping in tree growth. A node will split if its impurity is above the threshold, otherwise it is a leaf.
+    min_impurity_split: 节点划分最小不纯度，如果不纯度小等于该值则停止分裂 △ Threshold for early stopping in tree growth. A node will split if its impurity is above the threshold, otherwise it is a leaf.
     max_features: 划分时考虑的最大特征数 △
     max_depth: 决策树最大深度 △
-    min_samples_split: 内部节点再划分所需最小样本数
+    min_samples_split: 内部节点再划分所需最小样本数 △
     min_samples_leaf: 叶子节点最少样本数 △
     min_weight_fraction_leaf: 叶子节点最小的样本权重和 (缺失值处理涉及)
     max_leaf_nodes: 最大叶子节点数
@@ -40,13 +47,15 @@ class CART(object):
 
     def __init__(self,
                  min_impurity_split=0.005,
-                 max_features=2,
+                 max_features=0,
                  max_depth=5,
-                 min_samples_leaf=2
+                 min_samples_split=2,
+                 min_samples_leaf=5
                  ):
         self.params = {'min_impurity_split': min_impurity_split,
                        'max_features':max_features,
                        'max_depth':max_depth,
+                       'min_samples_split':min_samples_split,
                        'min_samples_leaf':min_samples_leaf}
         self.DTree = {}
 
@@ -235,7 +244,7 @@ class CART(object):
     """
     # t = _growTree(self=[], X=X, y=y, DTree={})
     # t = _growTree(self=[], X=X_train, y=y_train, DTree={})
-    def _Decision_Tree(self, X, y, DTree={}):
+    def _Decision_Tree(self, X, y, DTree={}, depth=0):
         # 初次分裂
         if DTree == {}:
             # Data
@@ -253,6 +262,7 @@ class CART(object):
 
             # 生成树(干)
             DTree = {}
+            depth = 0
 
             # 计算划分特征，最优划分点，最小基尼指数
             gini_list = self._gini_min(data=data, y=y)
@@ -260,13 +270,15 @@ class CART(object):
             min_gini_feature_point = gini_list[1]
             min_gini = gini_list[2]
 
-            # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值<=1停止分裂； 3. 数据集为空停止分裂；
-            if min_gini > 0.05 and len(data[y].unique()) > 1 and data.shape[0] > 0:       # Todo:self.params['min_impurity_split']
+            # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值唯一停止分裂； 3. 内部结点样本数小于min_samples_split停止分裂；4. 树深度>=max_depth停止分裂；
+            if min_gini > self.params['min_impurity_split'] and len(data[y].unique()) > 1 and data.shape[0] > self.params['min_samples_split'] and depth < self.params['max_depth']:
                 splitting_feature = min_gini_feature
                 splitting_point = min_gini_feature_point
 
                 # 初次分裂
+                depth = depth + 1
                 print([splitting_feature, splitting_point])
+
                 for opera in ['>', '<=']: # opera = '<='
                     if opera == '>': # 大于分裂点
                         data_split_temp = data[data[splitting_feature] > splitting_point]
@@ -276,10 +288,10 @@ class CART(object):
                         data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
                     description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
 
-                    # 继续分裂
-                    if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and data_split_temp.shape[1] > 1: # Todo:min_samples_leaf
+                    # 继续分裂(叶子结点评判)
+                    if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > self.params['min_samples_leaf'] and data_split_temp.shape[1] > self.params['max_features']+1:
                         currentTree = {description: data_split_temp}
-                        sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
+                        sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree, depth=depth)
                         # sub_subTree = _growTree(self=[], X=X, y=y, DTree=currentTree) # sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
                         DTree.update(sub_subTree)
 
@@ -289,12 +301,12 @@ class CART(object):
                         if len(data_split_temp[y].unique()) == 1:
                             currentValue = data_split_temp[y].unique()[0]
 
-                        # 停止分裂判断：叶子结点的最小样本个数小于阈值，不再继续分裂，此分裂有效。叶子结点为样本最多的类别 (min_samples_leaf)
-                        elif data_split_temp.shape[0] <= 3:  # min_samples_leaf
+                        # 停止分裂判断：叶子结点的最小样本个数小于阈值，不再继续分裂，此分裂有效。叶子结点为样本最多的类别
+                        elif data_split_temp.shape[0] <= self.params['min_samples_leaf']:
                             currentValue = data_split_temp[y].value_counts().idxmax()
 
-                        # 停止分裂判断：没有可用于分裂的特征
-                        elif data_split_temp.shape[1] <= 1:
+                        # 停止分裂判断：可用于分裂的特征小于最大特征阈值
+                        elif data_split_temp.shape[1] <= self.params['max_features']+1:
                             currentValue = data_split_temp[y].value_counts().idxmax()
 
                         # 符合继续分裂条件
@@ -303,14 +315,17 @@ class CART(object):
 
             # 不分裂
             else:
-                if data.shape[0] <= 0: # 空集
-                    print("Data set is None !")
+                if data.shape[0] <= self.params['min_samples_split']: # 内部结点样本数小等于最小划分样本数阈值
+                    print("Data set is too small !")
 
                 elif len(data[y].unique()) <= 1: # 类别值唯一
                     print("Y only one value !")
 
-                elif min_gini <= 0.05: # 小等于基尼指数阈值 Todo: self.params['min_impurity_split']
+                elif min_gini <= self.params['min_impurity_split']: # 小等于基尼指数阈值
                     print("initial min_gini <= min_impurity_split !")
+
+                elif depth >= self.params['max_depth']: # 最大树深度
+                    print("depth > max_depth !")
 
         # 第二次及之后的分裂
         else:
@@ -336,12 +351,13 @@ class CART(object):
                     min_gini_feature_point = gini_list[1]
                     min_gini = gini_list[2]
 
-                    # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值<=1停止分裂；
-                    if min_gini > 0.05 and len(data[y].unique()) > 1: # Todo: self.params['min_impurity_split'] = 0.05
+                    # 1. 如果不纯度<=阈值则停止分裂(min_impurity_split); 2. 类别取值<=1停止分裂；3. 内部结点样本数小于min_samples_split停止分裂 4. depth>=max_depth停止分裂；
+                    if min_gini > self.params['min_impurity_split'] and len(data[y].unique()) > 1 and data.shape[0] > self.params['min_samples_split'] and depth < self.params['max_depth']:
                         splitting_feature = min_gini_feature
                         splitting_point = min_gini_feature_point
 
                         # 初次分裂
+                        depth = depth + 1
                         print([splitting_feature, splitting_point])
 
                         for opera in ['>', '<=']:
@@ -353,10 +369,10 @@ class CART(object):
                                 data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
                             description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
 
-                            # 继续分裂-递归
-                            if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > 3 and data_split_temp.shape[1] > 1: # Todo: min_samples_leaf
+                            # 继续分裂-递归(叶子结点)
+                            if len(data_split_temp[y].unique()) > 1 and data_split_temp.shape[0] > self.params['min_samples_leaf'] and data_split_temp.shape[1] > self.params['max_features']+1 and depth < self.params['max_depth']: # Todo: min_samples_leaf
                                 currentTree = {description: data_split_temp}
-                                sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
+                                sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree, depth=depth)
                                 # sub_subTree = _growTree(self=[], X=X, y=y, DTree=currentTree)  # 递归   Todo: sub_subTree = self._Decision_Tree(X=X, y=y, DTree=currentTree)
                                 subTree.update(sub_subTree)
 
@@ -366,12 +382,16 @@ class CART(object):
                                 if len(data_split_temp[y].unique()) == 1:
                                     currentValue = data_split_temp[y].unique()[0]
 
-                                # 叶子结点的最小样本个数小于阈值，不再继续分裂。叶子结点为样本最多的类别 (min_samples_leaf)
-                                elif data_split_temp.shape[0] <= 3:  # Todo:min_samples_leaf
+                                # 叶子结点的最小样本个数小于阈值，则停止分裂: 叶子结点为样本最多的类别
+                                elif data_split_temp.shape[0] <= self.params['min_samples_leaf']:
                                     currentValue = data_split_temp[y].value_counts().idxmax()
 
-                                # 没有可用于分裂的特征
-                                elif data_split_temp.shape[1] <= 1:
+                                # 可用于分裂的特征小于最大特征阈值，则停止分裂: 叶子结点为样本最多的类别
+                                elif data_split_temp.shape[1] <= self.params['max_features']+1:
+                                    currentValue = data_split_temp[y].value_counts().idxmax()
+
+                                # 树深度达到最大深度，则停止分裂: 叶子结点为样本最多的类别
+                                elif depth >= self.params['max_depth']:
                                     currentValue = data_split_temp[y].value_counts().idxmax()
 
                                 # 符合继续分裂条件
@@ -380,10 +400,16 @@ class CART(object):
 
                     # 停止分裂判断，此次不分裂
                     else:
-                        if min_gini <= 0.05: # Todo: self.params['min_impurity_split'] = 0.05
+                        if data.shape[0] <= self.params['min_samples_split']:
+                            subTree = data[y].value_counts().idxmax()
+
+                        elif min_gini <= self.params['min_impurity_split']:
                             subTree = data[y].value_counts().idxmax()
 
                         elif len(data[y].unique()) <= 1:
+                            subTree = data[y].value_counts().idxmax()
+
+                        elif depth >= self.params['max_depth']:
                             subTree = data[y].value_counts().idxmax()
 
                     DTree[key] = subTree
@@ -437,12 +463,6 @@ class CART(object):
     #         return predict(DTree=self.DTree, new_data=new_data)
 
 
-def main():
-
-if __name__ == '__main__':
-    main()
-
-
 # --------------------------------- 测试 -------------------------------------- #
 # 1.西瓜数据集
 # One-hot encoding for categorical columns with get_dummies
@@ -455,6 +475,7 @@ def one_hot_encoder(data, categorical_features, nan_as_category=True):
 
 data = pd.read_csv('data/watermelon2.0.csv')
 data = data.drop(['id'],axis=1)
+
 # 增加连续型变量
 data['density'] = [0.403, 0.556, 0.481, 0.666, 0.243, 0.437, 0.634, 0.556, 0.593, 0.774, 0.343, 0.639, 0.657, 0.666, 0.608, 0.719, 0.697]
 
@@ -502,12 +523,14 @@ X_test = train_test.drop(['Survived'], axis=1)
 y_test = train_test['Survived']
 
 # 分类器
-clf = CART()
+clf = CART(min_samples_leaf=100)
 # 训练
 start = time.clock()
 clf.fit(X=X_train, y=y_train)
 elapsed = (time.clock() - start)
 print("Train Model Time : ", elapsed)
+# 打印树
+clf.DTree
 # 预测
 start = time.clock()
 y_test_pred = clf.predict(new_data=X_test)
