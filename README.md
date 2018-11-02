@@ -17,9 +17,10 @@
 ## 目前已完成：
 1. ID3
 2. C4.5
+3. CART
 
 ## 正在进行：
-1. CART
+1. Adaboost
 
 ## 待完成：
 1. Linear Regression
@@ -31,5 +32,5 @@
 7. GBDT
 8. Xgboost
 9. LightGBM
-10. SVM    
+10. SVM
 ...
