@@ -34,8 +34,10 @@ class Adaboost(object):
         self.params = {'classifier':classifier,
                        'iter_num':iter_num,
                        'early_stopping_num':early_stopping_num}
+        self.classifier_list = None
+        self.classifier_weights = None
 
-    def _split_feature_point(self, X, y):
+    def _split_feature_point(self, X, y, W):
         E_m_Min = 0.5
         for feature in X.columns:  # feature = 'Pclass_1'
             feature_values_series = X[feature].sort_values().drop_duplicates(keep='first')  # 排序、去重
@@ -81,12 +83,14 @@ class Adaboost(object):
         classifier_dic = {} # 基学习器-字典
 
         for iter in np.arange(1, self.params['iter_num']+1): # iter = 3
+            print(iter)
             W = W_dic[iter] # m轮样本权重
             X = data.drop(['label'], axis=1)
             y = data['label'].values
 
             # 对加权的训练集进行模型训练，寻找最小分类误差率对应的分裂特征与分裂点。（因为决策树桩，遍历每个特征计算分类误差率即可）
-            base_classifier = self._split_feature_point(X=X, y=y)
+            base_classifier = self._split_feature_point(X=X, y=y, W=W)
+            print(base_classifier[0])
             # base_classifier = (feature_opt, feature_value_opt, y_bigger_pred_opt, y_lesser_pred_opt, E_m_Min, y_pred_Min)
             classifier_dic[iter] = base_classifier
 
@@ -103,7 +107,32 @@ class Adaboost(object):
             Z_m = np.dot(W, np.exp(-A_m*y*y_pred))
             W_dic[iter+1] = W*np.exp(-A_m*y*y_pred)/Z_m
 
-        return classifier_dic, A_dic # 输出基学习器序列和基学习器权重
+        # 输出基学习器序列和基学习器权重
+        self.classifier_list = classifier_dic
+        self.classifier_weights = A_dic
+
+    def predict(self, new_data): # new_data = X
+        predict_Y = pd.Series([])
+        # 逐条样本预测
+        for row_index, row_data in new_data.iterrows(): # row_index = 0
+            print(new_data.iloc[row_index])
+            print('----------------------')
+            row_data = new_data.iloc[row_index]
+
+            y_pred_classifier_list = pd.Series(np.zeros((self.params['iter_num'])).tolist())
+            for iter in np.arange(1, self.params['iter_num']+1): # iter = 3
+                base_classifier = self.classifier_list[iter] # base_classifier = classifier_list[iter]
+                feature_opt = base_classifier[0]
+                feature_value_opt = base_classifier[1]
+                y_bigger_pred_opt = base_classifier[2]
+                y_lesser_pred_opt = base_classifier[3]
+                y_pred_classifier = np.where(row_data[feature_opt] >= feature_value_opt, y_bigger_pred_opt, y_lesser_pred_opt)
+                y_pred_classifier_list[iter-1] = y_pred_classifier
+            G = np.dot(pd.Series(self.classifier_weights), y_pred_classifier_list)
+            f = np.where(G>=0, 1, 0) # 原始为（1，0），训练过程中转为了（1，-1）
+            predict_Y[row_index] = f
+
+        return predict_Y
 
 
 # 数据测试 --------------------------------------------------------------------------------
@@ -125,11 +154,17 @@ test, cates = one_hot_encoder(data=test,
                               nan_as_category=False)
 
 # 分割数据
-# train_train, train_test = train_test_split(train,test_size=0.4,random_state=0)
-#
-# X_train = train_train.drop(['Survived'], axis=1)
-# y_train = train_train['Survived']
-# X_test = train_test.drop(['Survived'], axis=1)
-# y_test = train_test['Survived']
-X = train.drop(['Survived'], axis=1)
-y = train['Survived']
+train_train, train_test = train_test_split(train,test_size=0.4,random_state=0)
+
+X_train = train_train.drop(['Survived'], axis=1)
+y_train = train_train['Survived']
+X_test = train_test.drop(['Survived'], axis=1)
+y_test = train_test['Survived']
+# X = train.drop(['Survived'], axis=1)
+# y = train['Survived']
+
+# test
+cls = Adaboost(iter_num=20)
+cls.fit(X_train, y_train)
+
+
