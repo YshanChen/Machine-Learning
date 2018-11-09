@@ -169,8 +169,8 @@ X_train = train_train.drop(['Survived'], axis=1)
 y_train = train_train['Survived']
 X_test = train_test.drop(['Survived'], axis=1)
 y_test = train_test['Survived']
-# X = train.drop(['Survived'], axis=1)
-# y = train['Survived']
+X = train.drop(['Survived'], axis=1)
+y = train['Survived']
 
 # test
 cls = Adaboost(iter_num=20)
@@ -181,4 +181,25 @@ print('AUC for Test : ', roc_auc_score(y_test, y_test_pred)) # AUC for Test :  0
 print('Error for Test : ', (y_test != y_test_pred).sum()/len(y_test))  # Error for Test :  0.22128851540616246
 
 # 第一棵树的误差 0.20786516853932585 ，比 boosting好？
+
+# Submit
+clf = Adaboost()
+clf.fit(X, y)
+
+pre_Y = clf.predict(new_data=test)   # Parch = 9， 训练集未出现， 以该集合下最大类别代替
+submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
+submit.to_csv('Result/submit_20181109(Adaboost).csv', index=False)
+
+# 看下第一棵决策树桩的表现
+first_tree = clf.classifier_list[1]
+first_tree_E = first_tree[4]
+first_tree_feature_opt = first_tree[0]
+first_tree_feature_value_opt = first_tree[1]
+first_tree_y_bigger_pred_opt = first_tree[2]
+first_tree_y_lesser_pred_opt = first_tree[3]
+
+pre_Y = np.where(test[first_tree_feature_opt] >= first_tree_feature_value_opt, first_tree_y_bigger_pred_opt, first_tree_y_lesser_pred_opt)
+pre_Y[pre_Y==-1] = 0
+submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
+submit.to_csv('Result/submit_20181109(Adaboost_first_tree).csv', index=False)
 
