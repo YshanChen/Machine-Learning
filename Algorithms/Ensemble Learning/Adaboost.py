@@ -38,8 +38,8 @@ class Adaboost(object):
         self.classifier_weights = None
 
     def _split_feature_point(self, X, y, W):
-        E_m_Min = 0.5
-        for feature in X.columns:  # feature = 'Pclass_1'
+        E_m_Min = 1
+        for feature in X.columns:  # feature = 'Fare_2'
             feature_values_series = X[feature].sort_values().drop_duplicates(keep='first')  # 排序、去重
 
             for feature_value_1, feature_value_2 in zip(feature_values_series[0:], feature_values_series[1:]):
@@ -54,6 +54,7 @@ class Adaboost(object):
                 # 分类误差率-二分类问题
                 I = (y_pred != y).astype('int')
                 E_m = np.dot(W, I)
+                # dic[(feature, feature_value)] = E_m
 
                 if E_m < E_m_Min:
                     E_m_Min = E_m
@@ -68,9 +69,9 @@ class Adaboost(object):
 
         return (feature_opt, feature_value_opt, y_bigger_pred_opt, y_lesser_pred_opt, E_m_Min, y_pred_Min)
 
-    def fit(self, X, y): # X = X; y = y
-        # 保存原始X, y
-        y[y==0] = -1 # 0->-1
+    def fit(self, X, y): # X = X_train; y = y_train
+               # 保存原始X, y
+        y[y == 0] = -1  # 0->-1
         X_init = X
         y_init = y
 
@@ -82,7 +83,7 @@ class Adaboost(object):
         A_dic = {} # 基学习器权重-字典
         classifier_dic = {} # 基学习器-字典
 
-        for iter in np.arange(1, self.params['iter_num']+1): # iter = 3
+        for iter in np.arange(1, self.params['iter_num']+1): # iter = 8
             print(iter)
             W = W_dic[iter] # m轮样本权重
             X = data.drop(['label'], axis=1)
@@ -92,6 +93,9 @@ class Adaboost(object):
             base_classifier = self._split_feature_point(X=X, y=y, W=W)
             print(base_classifier[0])
             # base_classifier = (feature_opt, feature_value_opt, y_bigger_pred_opt, y_lesser_pred_opt, E_m_Min, y_pred_Min)
+            if base_classifier[4] >= 0.5:  # 如果E_m >= 0.5 停止迭代，跳出循环;
+                print("Error >= 0.5, Boosting stopped. ")
+                break
             classifier_dic[iter] = base_classifier
 
             # 基学习器分类误差率(二分类问题)
@@ -111,16 +115,21 @@ class Adaboost(object):
         self.classifier_list = classifier_dic
         self.classifier_weights = A_dic
 
-    def predict(self, new_data): # new_data = X
+    def predict(self, new_data): # new_data = X_test
+        # boosting 基学习器个数
+        classifiers_num = len(self.classifier_list)
+
         predict_Y = pd.Series([])
         # 逐条样本预测
-        for row_index, row_data in new_data.iterrows(): # row_index = 0
-            print(new_data.iloc[row_index])
-            print('----------------------')
-            row_data = new_data.iloc[row_index]
+        for row_index, row_data in new_data.iterrows(): # row_index = 495
+            print(row_index)
+            # print('----------------------')
+            # row_data = new_data.iloc[1]
 
-            y_pred_classifier_list = pd.Series(np.zeros((self.params['iter_num'])).tolist())
-            for iter in np.arange(1, self.params['iter_num']+1): # iter = 3
+            # y_pred_classifier_list = pd.Series(np.zeros((7)).tolist())
+            y_pred_classifier_list = pd.Series(np.zeros((classifiers_num)).tolist())
+            for iter in np.arange(1, classifiers_num+1): # iter = 4
+                print(iter)
                 base_classifier = self.classifier_list[iter] # base_classifier = classifier_list[iter]
                 feature_opt = base_classifier[0]
                 feature_value_opt = base_classifier[1]
@@ -166,5 +175,10 @@ y_test = train_test['Survived']
 # test
 cls = Adaboost(iter_num=20)
 cls.fit(X_train, y_train)
+y_test_pred = cls.predict(X_test)
 
+print('AUC for Test : ', roc_auc_score(y_test, y_test_pred)) # AUC for Test :  0.7491515837104072
+print('Error for Test : ', (y_test != y_test_pred).sum()/len(y_test))  # Error for Test :  0.22128851540616246
+
+# 第一棵树的误差 0.20786516853932585 ，比 boosting好？
 
