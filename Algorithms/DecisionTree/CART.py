@@ -463,87 +463,88 @@ class CART(object):
     #         return predict(DTree=self.DTree, new_data=new_data)
 
 
+
 # --------------------------------- 测试 -------------------------------------- #
-# 1.西瓜数据集
-# One-hot encoding for categorical columns with get_dummies
-def one_hot_encoder(data, categorical_features, nan_as_category=True):
-    original_columns = list(data.columns)
-    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
-    new_columns = [c for c in data.columns if c not in original_columns]
-    del original_columns
-    return data, new_columns
-
-data = pd.read_csv('data/watermelon2.0.csv')
-data = data.drop(['id'],axis=1)
-
-# 增加连续型变量
-data['density'] = [0.403, 0.556, 0.481, 0.666, 0.243, 0.437, 0.634, 0.556, 0.593, 0.774, 0.343, 0.639, 0.657, 0.666, 0.608, 0.719, 0.697]
-
-# onehot
-data, cates = one_hot_encoder(data=data,
-                              categorical_features=['seze', 'gendi', 'qiaosheng', 'wenli', 'qibu', 'chugan'],
-                              nan_as_category=False)
-
-X = data.drop(['haogua'], axis=1)
-y = data['haogua']
-
-# data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
-# y = 'label'
-
-clf = CART()
-clf.fit(X=X, y=y)
-clf.DTree
-y_test = clf.predict(new_data=X)
-
-# 2.Kaggle Titanic Data
-# 读取数据
-train = pd.read_csv('Data/train_fixed.csv')
-test = pd.read_csv('Data/test_fixed.csv')
-
-# onehot
-def one_hot_encoder(data, categorical_features, nan_as_category=True):
-    original_columns = list(data.columns)
-    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
-    new_columns = [c for c in data.columns if c not in original_columns]
-    del original_columns
-    return data, new_columns
-train, cates = one_hot_encoder(data=train,
-                              categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
-                              nan_as_category=False)
-test, cates = one_hot_encoder(data=test,
-                              categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
-                              nan_as_category=False)
-
-# 分割数据
-train_train, train_test = train_test_split(train,test_size=0.4,random_state=0)
-
-X_train = train_train.drop(['Survived'], axis=1)
-y_train = train_train['Survived']
-X_test = train_test.drop(['Survived'], axis=1)
-y_test = train_test['Survived']
-
-# 分类器
-clf = CART(min_samples_leaf=100)
-# 训练
-start = time.clock()
-clf.fit(X=X_train, y=y_train)
-elapsed = (time.clock() - start)
-print("Train Model Time : ", elapsed)
-# 打印树
-clf.DTree
-# 预测
-start = time.clock()
-y_test_pred = clf.predict(new_data=X_test)
-elapsed = (time.clock() - start)
-print("Predict Model Time : ", elapsed)
-
-# AUC
-pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
-print('AUC for Test : ', roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
-
-# Submit
-pre_Y = clf.predict(new_data=test)   # Parch = 9， 训练集未出现， 以该集合下最大类别代替
-submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
-submit.loc[:,'Survived'] = submit.loc[:,'Survived'].astype('category')
-submit['Survived'].cat.categories
-submit.to_csv('Result/submit_20181005.csv', index=False)
+# # 1.西瓜数据集
+# # One-hot encoding for categorical columns with get_dummies
+# def one_hot_encoder(data, categorical_features, nan_as_category=True):
+#     original_columns = list(data.columns)
+#     data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
+#     new_columns = [c for c in data.columns if c not in original_columns]
+#     del original_columns
+#     return data, new_columns
+#
+# data = pd.read_csv('data/watermelon2.0.csv')
+# data = data.drop(['id'],axis=1)
+#
+# # 增加连续型变量
+# data['density'] = [0.403, 0.556, 0.481, 0.666, 0.243, 0.437, 0.634, 0.556, 0.593, 0.774, 0.343, 0.639, 0.657, 0.666, 0.608, 0.719, 0.697]
+#
+# # onehot
+# data, cates = one_hot_encoder(data=data,
+#                               categorical_features=['seze', 'gendi', 'qiaosheng', 'wenli', 'qibu', 'chugan'],
+#                               nan_as_category=False)
+#
+# X = data.drop(['haogua'], axis=1)
+# y = data['haogua']
+#
+# # data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
+# # y = 'label'
+#
+# clf = CART()
+# clf.fit(X=X, y=y)
+# clf.DTree
+# y_test = clf.predict(new_data=X)
+#
+# # 2.Kaggle Titanic Data
+# # 读取数据
+# train = pd.read_csv('Data/train_fixed.csv')
+# test = pd.read_csv('Data/test_fixed.csv')
+#
+# # onehot
+# def one_hot_encoder(data, categorical_features, nan_as_category=True):
+#     original_columns = list(data.columns)
+#     data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
+#     new_columns = [c for c in data.columns if c not in original_columns]
+#     del original_columns
+#     return data, new_columns
+# train, cates = one_hot_encoder(data=train,
+#                               categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+#                               nan_as_category=False)
+# test, cates = one_hot_encoder(data=test,
+#                               categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+#                               nan_as_category=False)
+#
+# # 分割数据
+# train_train, train_test = train_test_split(train,test_size=0.4,random_state=0)
+#
+# X_train = train_train.drop(['Survived'], axis=1)
+# y_train = train_train['Survived']
+# X_test = train_test.drop(['Survived'], axis=1)
+# y_test = train_test['Survived']
+#
+# # 分类器
+# clf = CART(min_samples_leaf=100)
+# # 训练
+# start = time.clock()
+# clf.fit(X=X_train, y=y_train)
+# elapsed = (time.clock() - start)
+# print("Train Model Time : ", elapsed)
+# # 打印树
+# clf.DTree
+# # 预测
+# start = time.clock()
+# y_test_pred = clf.predict(new_data=X_test)
+# elapsed = (time.clock() - start)
+# print("Predict Model Time : ", elapsed)
+#
+# # AUC
+# pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
+# print('AUC for Test : ', roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
+#
+# # Submit
+# pre_Y = clf.predict(new_data=test)   # Parch = 9， 训练集未出现， 以该集合下最大类别代替
+# submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
+# submit.loc[:,'Survived'] = submit.loc[:,'Survived'].astype('category')
+# submit['Survived'].cat.categories
+# submit.to_csv('Result/submit_20181005.csv', index=False)
