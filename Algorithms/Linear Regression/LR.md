@@ -6,9 +6,9 @@
 >
 >$$P(Y=1|x) = \hat{y} = \sigma(w^T x+b) = \frac{1}{1+e^{-(w^T x+b)}}$$
 >
->$P(Y=0|x) = 1-\hat{y} = 1-\sigma(w^Tx+b) = \frac{e^{-(w^T x+b)}}{1+e^{-(w^T x+b)}} = \frac{1}{1+e^{w^T x+b}} $
+>$$P(Y=0|x) = 1-\hat{y} = 1-\sigma(w^Tx+b) = \frac{e^{-(w^T x+b)}}{1+e^{-(w^T x+b)}} = \frac{1}{1+e^{w^T x+b}} $$
 >
->$\sigma(z) = \frac{1}{1+exp(-z)}$
+>$$\sigma(z) = \frac{1}{1+exp(-z)}$$
 
 
 
@@ -45,15 +45,13 @@
 ### 3. 求解$w,b$
 
 >**梯度下降：**
->$$
->\begin{align}
+>
+>$$\begin{align}
 >&repeat \{ \\
 >& \ \ \ \ \ \ \ & w:=w-\alpha \frac{\partial J(w,b)}{\partial w} \\   
 >& \ \ \ \ \ \ \ & b:=b-\alpha \frac{\partial J(w,b)}{\partial b} \\   
 >&\}
->\end{align}
->$$
->
+>\end{align}$$
 
 
 
