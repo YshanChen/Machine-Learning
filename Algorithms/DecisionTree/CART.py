@@ -4,6 +4,7 @@ Created on 2018/09/18
 @author: Yshan.Chen
 
 Update: 2018/10/23
+Update: 2018/12/27
 
 Commit：
 1. 完成基尼指数函数；
@@ -276,7 +277,7 @@ class CART(object):
                 splitting_feature = min_gini_feature
                 splitting_point = min_gini_feature_point
                 depth = depth + 1
-                print([splitting_feature, splitting_point])
+                # print([splitting_feature, splitting_point])
 
                 # 分裂ing
                 for opera in ['>', '<=']: # 分别处理左右两个branch
@@ -331,8 +332,8 @@ class CART(object):
         # 第二次及之后的分裂
         else:
             for key, value in DTree.items():
-                print(key)
-                print("-------------------------------")
+                # print(key)
+                # print("-------------------------------")
                 key = key # key = 'wenli_1 > 0.5'  key = 'Age_1 <= 0.5'
                 value = value  # value = DTree[key]
 
@@ -372,7 +373,7 @@ class CART(object):
 
                         # 确定分裂 --------------
                         depth = depth + 1
-                        print([splitting_feature, splitting_point])
+                        # print([splitting_feature, splitting_point])
 
                         for opera in ['>', '<=']: # 分别处理左右两个branch
                             if opera == '>':  # 大于分裂点
@@ -431,7 +432,7 @@ class CART(object):
                     DTree[key] = subTree  # 该叶子结点的分裂特征
                 else:
                     raise Exception("The subTree's value is not a DataFrame !")
-            print("-- Leaf Node --")
+            # print("-- Leaf Node --")
 
         return DTree
 
@@ -474,35 +475,35 @@ class CART(object):
                         return T_value
 
 
-# --------------------------------- 测试 -------------------------------------- #
-# 1.西瓜数据集
-# One-hot encoding for categorical columns with get_dummies
-def one_hot_encoder(data, categorical_features, nan_as_category=True):
-    original_columns = list(data.columns)
-    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
-    new_columns = [c for c in data.columns if c not in original_columns]
-    del original_columns
-    return data, new_columns
-
-data = pd.read_csv('data/watermelon2.0.csv')
-data = data.drop(['id'],axis=1)
-
-# 增加连续型变量
-data['density'] = [0.403, 0.556, 0.481, 0.666, 0.243, 0.437, 0.634, 0.556, 0.593, 0.774, 0.343, 0.639, 0.657, 0.666, 0.608, 0.719, 0.697]
-
-# onehot
-data, cates = one_hot_encoder(data=data,
-                              categorical_features=['seze', 'gendi', 'qiaosheng', 'wenli', 'qibu', 'chugan'],
-                              nan_as_category=False)
-
-X = data.drop(['haogua'], axis=1)
-y = data['haogua']
-
-clf = CART(objective='binary')
-clf.fit(X=X, y=y)
-clf.DTree
-y_test = clf.predict(new_data=X)
-
+# # --------------------------------- 测试 -------------------------------------- #
+# # 1.西瓜数据集
+# # One-hot encoding for categorical columns with get_dummies
+# def one_hot_encoder(data, categorical_features, nan_as_category=True):
+#     original_columns = list(data.columns)
+#     data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
+#     new_columns = [c for c in data.columns if c not in original_columns]
+#     del original_columns
+#     return data, new_columns
+#
+# data = pd.read_csv('data/watermelon2.0.csv')
+# data = data.drop(['id'],axis=1)
+#
+# # 增加连续型变量
+# data['density'] = [0.403, 0.556, 0.481, 0.666, 0.243, 0.437, 0.634, 0.556, 0.593, 0.774, 0.343, 0.639, 0.657, 0.666, 0.608, 0.719, 0.697]
+#
+# # onehot
+# data, cates = one_hot_encoder(data=data,
+#                               categorical_features=['seze', 'gendi', 'qiaosheng', 'wenli', 'qibu', 'chugan'],
+#                               nan_as_category=False)
+#
+# X = data.drop(['haogua'], axis=1)
+# y = data['haogua']
+#
+# clf = CART(objective='binary')
+# clf.fit(X=X, y=y)
+# clf.DTree
+# y_test = clf.predict(new_data=X)
+#
 # # 2.Kaggle Titanic Data
 # # 读取数据
 # train = pd.read_csv('Data/train_fixed.csv')
@@ -530,28 +531,50 @@ y_test = clf.predict(new_data=X)
 # X_test = train_test.drop(['Survived'], axis=1)
 # y_test = train_test['Survived']
 #
-# # 分类器
-# clf = CART(min_samples_leaf=100)
-# # 训练
-# start = time.clock()
-# clf.fit(X=X_train, y=y_train)
-# elapsed = (time.clock() - start)
-# print("Train Model Time : ", elapsed)
-# # 打印树
-# clf.DTree
-# # 预测
-# start = time.clock()
-# y_test_pred = clf.predict(new_data=X_test)
-# elapsed = (time.clock() - start)
-# print("Predict Model Time : ", elapsed)
+# X_Train = train.drop(['Survived'], axis=1)
+# y_Train = train['Survived']
 #
-# # AUC
-# pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
-# print('AUC for Test : ', roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
+# # 分类器
+# clf = CART(objective='binary', min_samples_split=25, min_samples_leaf=5, max_depth=4)
+#
+# AUC_list = pd.Series([])
+# for max_depth in np.arange(1,10,1):
+#     print(max_depth)
+#     clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=max_depth)
+#
+#     # 训练
+#     # start = time.clock()
+#     clf.fit(X=X_train, y=y_train)
+#     # elapsed = (time.clock() - start)
+#     # print("Train Model Time : ", elapsed)
+#     # 打印树
+#     clf.DTree
+#     # 预测
+#     # start = time.clock()
+#     y_test_pred = clf.predict(new_data=X_test)
+#     # elapsed = (time.clock() - start)
+#     # print("Predict Model Time : ", elapsed)
+#
+#     # AUC
+#     pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
+#     AUC_list.set_value(max_depth, roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
+# AUC_df = pd.DataFrame(AUC_list, columns=['AUC'])
+# AUC_df['max_depth'] = AUC_df.index
+#
+# import seaborn as sns
+# sns.jointplot(x='max_depth', y='AUC', data=AUC_df)
+#
+# # min_samples_split = 5
+# # min_samples_leaf = 2
+# # max_depth = 5
+#
 #
 # # Submit
+# clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=5)
+# clf.fit(X=X_Train, y=y_Train)
+#
 # pre_Y = clf.predict(new_data=test)   # Parch = 9， 训练集未出现， 以该集合下最大类别代替
 # submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
 # submit.loc[:,'Survived'] = submit.loc[:,'Survived'].astype('category')
 # submit['Survived'].cat.categories
-# submit.to_csv('Result/submit_20181005.csv', index=False)
+# submit.to_csv('Result/submit_20181227_2.csv', index=False)
