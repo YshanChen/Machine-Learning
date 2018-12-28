@@ -42,7 +42,7 @@ class CART(object):
     max_features: 划分时考虑的最大特征数 △
     max_depth: 决策树最大深度 △
     min_samples_split: 内部节点再划分所需最小样本数 △
-    min_samples_leaf: 叶子节点最少样本数 △
+    min_samples_leaf: 叶子节点最少样本数 △ 如分裂后叶子节点样本数小于该值，则不分裂。
     min_weight_fraction_leaf: 叶子节点最小的样本权重和 (缺失值处理涉及)
     max_leaf_nodes: 最大叶子节点数
     """
@@ -235,6 +235,29 @@ class CART(object):
       对于连续型分裂特征，分裂后依然可能取值不唯一，故可能保留用于继续分裂；
       非分裂特征随着分裂可能也出现取值唯一情况，故每次分裂后均根据区分能力删除取值唯一的特征；
     """
+
+
+
+
+    def _Decision_Tree_regression(self, X, y, DTree={}, depth=0):
+        # 初次分裂
+        if DTree == {}:
+            # Data
+            data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
+            data['label'] = data['label'].astype('category')
+            y = 'label'
+            data = _drop_unique_column(self=[], data)  # 排除取值唯一的变量
+            # data = _drop_unique_column(self=[], data=data)
+            X = data.drop([y], axis=1).columns
+
+            # 生成树桩
+            DTree = {}
+            depth = 0
+
+            # 计算：(平方损失函数)
+
+
+
     def _Decision_Tree_binary(self, X, y, DTree={}, depth=0): # X=X; y=y; DTree={}; depth=0
         # 初次分裂
         if DTree == {}:
@@ -476,15 +499,24 @@ class CART(object):
 
 
 # # --------------------------------- 测试 -------------------------------------- #
+def one_hot_encoder(data, categorical_features, nan_as_category=True):
+    original_columns = list(data.columns)
+    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
+    new_columns = [c for c in data.columns if c not in original_columns]
+    del original_columns
+    return data, new_columns
+
+# 1. Boston Housing
+train = pd.read_csv('data/boston_train.csv')
+test = pd.read_csv('data/boston_test.csv')
+train_X = train.drop(['ID', 'medv'], axis=1)
+train_Y = train['medv']
+train_X, cates = one_hot_encoder(data=train_X, categorical_features=['rad'], nan_as_category=False)
+test_X = test.drop(['ID'], axis=1)
+test_X, cates = one_hot_encoder(data=test_X, categorical_features=['rad'], nan_as_category=False)
+
+
 # # 1.西瓜数据集
-# # One-hot encoding for categorical columns with get_dummies
-# def one_hot_encoder(data, categorical_features, nan_as_category=True):
-#     original_columns = list(data.columns)
-#     data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
-#     new_columns = [c for c in data.columns if c not in original_columns]
-#     del original_columns
-#     return data, new_columns
-#
 # data = pd.read_csv('data/watermelon2.0.csv')
 # data = data.drop(['id'],axis=1)
 #
@@ -578,3 +610,47 @@ class CART(object):
 # submit.loc[:,'Survived'] = submit.loc[:,'Survived'].astype('category')
 # submit['Survived'].cat.categories
 # submit.to_csv('Result/submit_20181227_2.csv', index=False)
+
+
+
+# crim
+# per capita crime rate by town.
+#
+# zn
+# proportion of residential land zoned for lots over 25,000 sq.ft.
+#
+# indus
+# proportion of non-retail business acres per town.
+#
+# chas
+# Charles River dummy variable (= 1 if tract bounds river; 0 otherwise).
+#
+# nox
+# nitrogen oxides concentration (parts per 10 million).
+#
+# rm
+# average number of rooms per dwelling.
+#
+# age
+# proportion of owner-occupied units built prior to 1940.
+#
+# dis
+# weighted mean of distances to five Boston employment centres.
+#
+# rad
+# index of accessibility to radial highways.
+#
+# tax
+# full-value property-tax rate per $10,000.
+#
+# ptratio
+# pupil-teacher ratio by town.
+#
+# black
+# 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town.
+#
+# lstat
+# lower status of the population (percent).
+#
+# medv
+# median value of owner-occupied homes in $1000s.
