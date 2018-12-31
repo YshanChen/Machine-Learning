@@ -236,19 +236,51 @@ class CART(object):
       非分裂特征随着分裂可能也出现取值唯一情况，故每次分裂后均根据区分能力删除取值唯一的特征；
     """
 
+    def _feature_split(self, data):  # data=data
+        feature_split_dic = {}
 
+        # X个数
+        X = data.drop(['label'], axis=1).columns
+        X_num = len(X)
 
+        # 计算每个特征的每个取值对应的Y类别的个数
+        for feature_name in X:  # feature_name = 'density'
+            # 排序、去重、取所有特征值
+            feature_values_series = data[feature_name].sort_values().drop_duplicates(keep='first')
 
-    def _Decision_Tree_regression(self, X, y, DTree={}, depth=0):
+            # 计算：特征的每个划分点对应的Y类别的个数
+            feature_values_dict = {}
+            for feature_value_1, feature_value_2 in zip(feature_values_series[0:], feature_values_series[1:]):
+                feature_values_vec = {'> a': 0, '<= a': 0}  # [>a, <=a]
+                feature_split_value = round((feature_value_1 + feature_value_2) / 2, 4)
+                Vec_bigger = {}
+                Vec_lesser = {}
+                for y_class in y_classes:
+                    count_number_bigger = ((data[feature_name] > feature_split_value) & (data[y] == y_class)).sum()
+                    count_number_lesser = ((data[feature_name] <= feature_split_value) & (data[y] == y_class)).sum()
+                    Vec_bigger[y_class] = count_number_bigger
+                    Vec_lesser[y_class] = count_number_lesser
+                    feature_values_vec['> a'] = Vec_bigger
+                    feature_values_vec['<= a'] = Vec_lesser
+
+                feature_values_dict[feature_split_value] = feature_values_vec
+
+            # 打印:分裂特征 & 取值对应类别个数
+            # print('Feature Split Name : ', feature_name)
+            # print('Feature Class Number : ', feature_values_dict)
+
+            feature_split_dic[feature_name] = feature_values_dict
+
+        return feature_split_dic
+
+    def _Decision_Tree_regression(self, X, y, DTree={}, depth=0):  # X=train_X; y=train_Y; DTree={}; depth=0
         # 初次分裂
         if DTree == {}:
             # Data
             data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
-            data['label'] = data['label'].astype('category')
-            y = 'label'
-            data = _drop_unique_column(self=[], data)  # 排除取值唯一的变量
-            # data = _drop_unique_column(self=[], data=data)
-            X = data.drop([y], axis=1).columns
+            # data = _drop_unique_column(data)  # 排除取值唯一的变量
+            data = _drop_unique_column(self=[], data=data)
+            X = data.drop(['label'], axis=1).columns
 
             # 生成树桩
             DTree = {}
