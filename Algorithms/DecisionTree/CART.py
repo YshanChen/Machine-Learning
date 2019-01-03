@@ -69,8 +69,8 @@ class CART(object):
     def fit(self, X, y):
         if self.params['objective'] == 'binary':
             self.DTree = self._Decision_Tree_binary(X=X, y=y)
-        if self.params['objective'] == 'regression':
-            self.DTree = self._Decision_Tree_regression(X=X, y=y)
+        # if self.params['objective'] == 'regression':
+        #     self.DTree = self._Decision_Tree_regression(X=X, y=y)
 
     def predict(self, new_data): # 逐条预测，未实现并行化
         if self.DTree == {}:
@@ -165,7 +165,7 @@ class CART(object):
         A_toSelect = Aik_dic.keys()
 
         gini_A_dic = {}
-        for a_i in A_toSelect:
+        for a_i in A_toSelect: # a_i = 0.5
             D_bigger = Aik_dic[a_i]['> a']
             D_lesser = Aik_dic[a_i]['<= a']
 
@@ -183,7 +183,7 @@ class CART(object):
         return gini_A_opt
 
     # 计算每个特征的在每个划分点下的基尼指数，选取最小的基尼指数对应的特征以及最优划分点
-    def _gini_min(self, data, y):
+    def _gini_min(self, data, y): # data=data; y=y
         X = data.drop([y], axis=1).columns
         X_number = len(X)
 
@@ -191,7 +191,7 @@ class CART(object):
         gain_dic = dict.fromkeys(X, 0)
 
         # 计算每个特征的每个取值对应的Y类别的个数
-        feature_split_dic = self._feature_split(data, y)
+        feature_split_dic = self._feature_split(data=data, y=y)
         # feature_split_dic = _feature_split(self=[], data=data, y=y)
 
         # Y类别个数
@@ -201,7 +201,7 @@ class CART(object):
         if gain_dic.keys() != feature_split_dic.keys():
             raise ValueError("Error: Features are wrong !")
 
-        for feature_name in gain_dic.keys():  # feature_name = 'chugan_1'
+        for feature_name in gain_dic.keys():  # feature_name = 'Embarked_1'
             gain_dic[feature_name] = self._gini_A(Di_dic=Di_dic, Aik_dic=feature_split_dic[feature_name])
             # gain_dic[feature_name] = _gini_A(self=[], Di_dic=Di_dic, Aik_dic=feature_split_dic[feature_name])
 
@@ -236,61 +236,7 @@ class CART(object):
       非分裂特征随着分裂可能也出现取值唯一情况，故每次分裂后均根据区分能力删除取值唯一的特征；
     """
 
-    def _feature_split(self, data):  # data=data
-        feature_split_dic = {}
-
-        # X个数
-        X = data.drop(['label'], axis=1).columns
-        X_num = len(X)
-
-        # 计算每个特征的每个取值对应的Y类别的个数
-        for feature_name in X:  # feature_name = 'density'
-            # 排序、去重、取所有特征值
-            feature_values_series = data[feature_name].sort_values().drop_duplicates(keep='first')
-
-            # 计算：特征的每个划分点对应的Y类别的个数
-            feature_values_dict = {}
-            for feature_value_1, feature_value_2 in zip(feature_values_series[0:], feature_values_series[1:]):
-                feature_values_vec = {'> a': 0, '<= a': 0}  # [>a, <=a]
-                feature_split_value = round((feature_value_1 + feature_value_2) / 2, 4)
-                Vec_bigger = {}
-                Vec_lesser = {}
-                for y_class in y_classes:
-                    count_number_bigger = ((data[feature_name] > feature_split_value) & (data[y] == y_class)).sum()
-                    count_number_lesser = ((data[feature_name] <= feature_split_value) & (data[y] == y_class)).sum()
-                    Vec_bigger[y_class] = count_number_bigger
-                    Vec_lesser[y_class] = count_number_lesser
-                    feature_values_vec['> a'] = Vec_bigger
-                    feature_values_vec['<= a'] = Vec_lesser
-
-                feature_values_dict[feature_split_value] = feature_values_vec
-
-            # 打印:分裂特征 & 取值对应类别个数
-            # print('Feature Split Name : ', feature_name)
-            # print('Feature Class Number : ', feature_values_dict)
-
-            feature_split_dic[feature_name] = feature_values_dict
-
-        return feature_split_dic
-
-    def _Decision_Tree_regression(self, X, y, DTree={}, depth=0):  # X=train_X; y=train_Y; DTree={}; depth=0
-        # 初次分裂
-        if DTree == {}:
-            # Data
-            data = pd.concat([X, y], axis=1).rename(str, columns={y.name: 'label'})
-            # data = _drop_unique_column(data)  # 排除取值唯一的变量
-            data = _drop_unique_column(self=[], data=data)
-            X = data.drop(['label'], axis=1).columns
-
-            # 生成树桩
-            DTree = {}
-            depth = 0
-
-            # 计算：(平方损失函数)
-
-
-
-    def _Decision_Tree_binary(self, X, y, DTree={}, depth=0): # X=X; y=y; DTree={}; depth=0
+    def _Decision_Tree_binary(self, X, y, DTree={}, depth=0): # X=X_Train; y=y_Train; DTree={}; depth=0
         # 初次分裂
         if DTree == {}:
 
@@ -403,7 +349,7 @@ class CART(object):
                     X = data.drop([y], axis=1).columns
 
                     # 计算划分特征，最优划分点，最小基尼指数
-                    gini_list = self._gini_min(data, y)
+                    gini_list = self._gini_min(data=data, y=y)
                     # gini_list = _gini_min(self = [], data=data, y=y)
                     min_gini_feature = gini_list[0]
                     min_gini_feature_point = gini_list[1]
@@ -531,23 +477,6 @@ class CART(object):
 
 
 # # --------------------------------- 测试 -------------------------------------- #
-def one_hot_encoder(data, categorical_features, nan_as_category=True):
-    original_columns = list(data.columns)
-    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
-    new_columns = [c for c in data.columns if c not in original_columns]
-    del original_columns
-    return data, new_columns
-
-# 1. Boston Housing
-train = pd.read_csv('data/boston_train.csv')
-test = pd.read_csv('data/boston_test.csv')
-train_X = train.drop(['ID', 'medv'], axis=1)
-train_Y = train['medv']
-train_X, cates = one_hot_encoder(data=train_X, categorical_features=['rad'], nan_as_category=False)
-test_X = test.drop(['ID'], axis=1)
-test_X, cates = one_hot_encoder(data=test_X, categorical_features=['rad'], nan_as_category=False)
-
-
 # # 1.西瓜数据集
 # data = pd.read_csv('data/watermelon2.0.csv')
 # data = data.drop(['id'],axis=1)
@@ -567,122 +496,78 @@ test_X, cates = one_hot_encoder(data=test_X, categorical_features=['rad'], nan_a
 # clf.fit(X=X, y=y)
 # clf.DTree
 # y_test = clf.predict(new_data=X)
-#
-# # 2.Kaggle Titanic Data
-# # 读取数据
-# train = pd.read_csv('Data/train_fixed.csv')
-# test = pd.read_csv('Data/test_fixed.csv')
-#
-# # onehot
-# def one_hot_encoder(data, categorical_features, nan_as_category=True):
-#     original_columns = list(data.columns)
-#     data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
-#     new_columns = [c for c in data.columns if c not in original_columns]
-#     del original_columns
-#     return data, new_columns
-# train, cates = one_hot_encoder(data=train,
-#                               categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
-#                               nan_as_category=False)
-# test, cates = one_hot_encoder(data=test,
-#                               categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
-#                               nan_as_category=False)
-#
-# # 分割数据
-# train_train, train_test = train_test_split(train,test_size=0.4,random_state=0)
-#
-# X_train = train_train.drop(['Survived'], axis=1)
-# y_train = train_train['Survived']
-# X_test = train_test.drop(['Survived'], axis=1)
-# y_test = train_test['Survived']
-#
-# X_Train = train.drop(['Survived'], axis=1)
-# y_Train = train['Survived']
-#
-# # 分类器
-# clf = CART(objective='binary', min_samples_split=25, min_samples_leaf=5, max_depth=4)
-#
-# AUC_list = pd.Series([])
-# for max_depth in np.arange(1,10,1):
-#     print(max_depth)
-#     clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=max_depth)
-#
-#     # 训练
-#     # start = time.clock()
-#     clf.fit(X=X_train, y=y_train)
-#     # elapsed = (time.clock() - start)
-#     # print("Train Model Time : ", elapsed)
-#     # 打印树
-#     clf.DTree
-#     # 预测
-#     # start = time.clock()
-#     y_test_pred = clf.predict(new_data=X_test)
-#     # elapsed = (time.clock() - start)
-#     # print("Predict Model Time : ", elapsed)
-#
-#     # AUC
-#     pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
-#     AUC_list.set_value(max_depth, roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
-# AUC_df = pd.DataFrame(AUC_list, columns=['AUC'])
-# AUC_df['max_depth'] = AUC_df.index
-#
-# import seaborn as sns
-# sns.jointplot(x='max_depth', y='AUC', data=AUC_df)
-#
-# # min_samples_split = 5
-# # min_samples_leaf = 2
-# # max_depth = 5
-#
-#
-# # Submit
-# clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=5)
-# clf.fit(X=X_Train, y=y_Train)
-#
-# pre_Y = clf.predict(new_data=test)   # Parch = 9， 训练集未出现， 以该集合下最大类别代替
-# submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
-# submit.loc[:,'Survived'] = submit.loc[:,'Survived'].astype('category')
-# submit['Survived'].cat.categories
-# submit.to_csv('Result/submit_20181227_2.csv', index=False)
+
+# 2.Kaggle Titanic Data
+# 读取数据
+train = pd.read_csv('Data/train_fixed.csv')
+test = pd.read_csv('Data/test_fixed.csv')
+
+# onehot
+def one_hot_encoder(data, categorical_features, nan_as_category=True):
+    original_columns = list(data.columns)
+    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
+    new_columns = [c for c in data.columns if c not in original_columns]
+    del original_columns
+    return data, new_columns
+train, cates = one_hot_encoder(data=train,
+                              categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+                              nan_as_category=False)
+test, cates = one_hot_encoder(data=test,
+                              categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+                              nan_as_category=False)
+
+# 分割数据
+train_train, train_test = train_test_split(train,test_size=0.4,random_state=0)
+
+X_train = train_train.drop(['Survived'], axis=1)
+y_train = train_train['Survived']
+X_test = train_test.drop(['Survived'], axis=1)
+y_test = train_test['Survived']
+
+X_Train = train.drop(['Survived'], axis=1)
+y_Train = train['Survived']
+
+# 分类器
+AUC_list = pd.Series([])
+for max_depth in np.arange(1,10,1):
+    print(max_depth)
+    clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=max_depth)
+
+    # 训练
+    # start = time.clock()
+    clf.fit(X=X_train, y=y_train)
+    # elapsed = (time.clock() - start)
+    # print("Train Model Time : ", elapsed)
+    # 打印树
+    clf.DTree
+    # 预测
+    # start = time.clock()
+    y_test_pred = clf.predict(new_data=X_test)
+    # elapsed = (time.clock() - start)
+    # print("Predict Model Time : ", elapsed)
+
+    # AUC
+    pre_dt = pd.DataFrame({'Y': train_test['Survived'],'pre_Y': y_test_pred})
+    AUC_list.set_value(max_depth, roc_auc_score(pre_dt.Y,pre_dt.pre_Y))
+AUC_df = pd.DataFrame(AUC_list, columns=['AUC'])
+AUC_df['max_depth'] = AUC_df.index
+
+import seaborn as sns
+sns.jointplot(x='max_depth', y='AUC', data=AUC_df)
+
+# min_samples_split = 5
+# min_samples_leaf = 2
+# max_depth = 5
 
 
+# Submit
+clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=5)
+clf.fit(X=X_Train, y=y_Train)
 
-# crim
-# per capita crime rate by town.
-#
-# zn
-# proportion of residential land zoned for lots over 25,000 sq.ft.
-#
-# indus
-# proportion of non-retail business acres per town.
-#
-# chas
-# Charles River dummy variable (= 1 if tract bounds river; 0 otherwise).
-#
-# nox
-# nitrogen oxides concentration (parts per 10 million).
-#
-# rm
-# average number of rooms per dwelling.
-#
-# age
-# proportion of owner-occupied units built prior to 1940.
-#
-# dis
-# weighted mean of distances to five Boston employment centres.
-#
-# rad
-# index of accessibility to radial highways.
-#
-# tax
-# full-value property-tax rate per $10,000.
-#
-# ptratio
-# pupil-teacher ratio by town.
-#
-# black
-# 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town.
-#
-# lstat
-# lower status of the population (percent).
-#
-# medv
-# median value of owner-occupied homes in $1000s.
+pre_Y = clf.predict(new_data=test)   # Parch = 9， 训练集未出现， 以该集合下最大类别代替
+submit = pd.DataFrame({'PassengerId': np.arange(892,1310),'Survived': pre_Y})
+submit.loc[:,'Survived'] = submit.loc[:,'Survived'].astype('category')
+submit['Survived'].cat.categories
+submit.to_csv('Result/submit_20190103.csv', index=False)
+
+
