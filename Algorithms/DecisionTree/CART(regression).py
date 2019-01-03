@@ -1,27 +1,8 @@
 # -*- coding: utf8 -*-
 """
-Created on 2018/09/18
+Created on 2019/01/03
 @author: Yshan.Chen
 
-Update: 2018/10/23
-Update: 2018/12/27
-
-Commit：
-1. 完成基尼指数函数；
-2. 完成连续值的处理；
-3. 完成生成树；
-4. 加入停止条件：
-    1) max_depth
-    2) min_impurity_split
-    3) max_features
-    4) min_samples_split
-    5) min_samples_leaf
-
-Todo List:
-1. 完成回归树
-1. 缺失值的处理；1)如何在属性值缺失情况下特征选择？ 2)给定分裂特征，若样本在该特征上缺失，如何对样本进行划分？
-2. 树剪枝； CART算法的剪枝与ID3和C4.5不同
-3. 预测-并行化
 """
 
 import numpy as np
@@ -31,7 +12,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 import re
 import time
-
 
 class CART(object):
     """
@@ -408,45 +388,3 @@ rgs.DTree
 test_y_pred = rgs.predict(new_data=test_X)
 submission['medv'] = test_y_pred
 submission.to_csv('Result/Boston_Housing_190104.csv', index=False)
-
-# crim
-# per capita crime rate by town.
-#
-# zn
-# proportion of residential land zoned for lots over 25,000 sq.ft.
-#
-# indus
-# proportion of non-retail business acres per town.
-#
-# chas
-# Charles River dummy variable (= 1 if tract bounds river; 0 otherwise).
-#
-# nox
-# nitrogen oxides concentration (parts per 10 million).
-#
-# rm
-# average number of rooms per dwelling.
-#
-# age
-# proportion of owner-occupied units built prior to 1940.
-#
-# dis
-# weighted mean of distances to five Boston employment centres.
-#
-# rad
-# index of accessibility to radial highways.
-#
-# tax
-# full-value property-tax rate per $10,000.
-#
-# ptratio
-# pupil-teacher ratio by town.
-#
-# black
-# 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town.
-#
-# lstat
-# lower status of the population (percent).
-#
-# medv
-# median value of owner-occupied homes in $1000s.
