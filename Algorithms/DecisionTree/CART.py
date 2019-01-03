@@ -265,14 +265,14 @@ class CART(object):
             2. 类别取值唯一,不分裂； 
             3. 用于分裂结点的样本数小于min_samples_split,不分裂；
             4. 分裂后的两个结点的样本个数不满足min_samples_leaf,不分裂；
-            5. 树深度>=max_depth,不分裂；
+            5. 树深度>max_depth,不分裂；
             '''
             if min_gini >= self.params['min_impurity_split'] and \
                     len(data[y].unique()) > 1 and \
                     data.shape[0] > self.params['min_samples_split'] and \
                     (data[min_gini_feature] > min_gini_feature_point).sum() >= self.params['min_samples_leaf'] and \
                     (data[min_gini_feature] <= min_gini_feature_point).sum() >= self.params['min_samples_leaf'] and \
-                    depth < self.params['max_depth']:
+                    depth <= self.params['max_depth']:
 
                 # 确定分裂 ---
                 splitting_feature = min_gini_feature
@@ -327,113 +327,110 @@ class CART(object):
                     print("initial min_gini < min_impurity_split !")
 
                 # 5. 最大树深度
-                elif depth >= self.params['max_depth']:
+                elif depth > self.params['max_depth']:
                     print("depth > max_depth !")
 
         # 第二次及之后的分裂
         else:
-            for key, value in DTree.items():
-                # print(key)
-                # print("-------------------------------")
-                key = key # key = 'wenli_1 > 0.5'  key = 'Age_1 <= 0.5'
-                value = value  # value = DTree[key]
+            key = list(DTree.keys())[0]  # key = 'wenli_1 > 0.5'  key = 'Age_1 <= 0.5'
+            value = DTree[key]  # value = DTree[key]
 
-                # 子树
-                subTree = {}
+            # 子树
+            subTree = {}
 
-                # 判断是否为叶子结点
-                if isinstance(value, pd.DataFrame):
-                    data = value    # data = value 已经排除了之前用过的且值为一的变量。
+            # 判断是否为叶子结点
+            if isinstance(value, pd.DataFrame):
+                data = value    # data = value 已经排除了之前用过的且值为一的变量。
 
-                    # 特征变量X
-                    X = data.drop([y], axis=1).columns
+                # 特征变量X
+                X = data.drop([y], axis=1).columns
 
-                    # 计算划分特征，最优划分点，最小基尼指数
-                    gini_list = self._gini_min(data=data, y=y)
-                    # gini_list = _gini_min(self = [], data=data, y=y)
-                    min_gini_feature = gini_list[0]
-                    min_gini_feature_point = gini_list[1]
-                    min_gini = gini_list[2]
+                # 计算划分特征，最优划分点，最小基尼指数
+                gini_list = self._gini_min(data=data, y=y)
+                # gini_list = _gini_min(self = [], data=data, y=y)
+                min_gini_feature = gini_list[0]
+                min_gini_feature_point = gini_list[1]
+                min_gini = gini_list[2]
 
-                    '''
-                    分裂判断：
-                    1. 如果不纯度<=阈值,不分裂(min_impurity_split); 
-                    2. 类别取值唯一,不分裂； 
-                    3. 用于分裂结点的样本数小于min_samples_split,不分裂；
-                    4. 分裂后的两个结点的样本个数不满足min_samples_leaf,不分裂；
-                    5. 树深度>=max_depth,不分裂；
-                    '''
-                    if min_gini >= self.params['min_impurity_split'] and len(data[y].unique()) > 1 and data.shape[0] > \
-                            self.params['min_samples_split'] and (
-                            data[min_gini_feature] > min_gini_feature_point).sum() >= self.params[
-                        'min_samples_leaf'] and (data[min_gini_feature] <= min_gini_feature_point).sum() >= self.params[
-                        'min_samples_leaf'] and depth < self.params['max_depth']:
+                '''
+                分裂判断：
+                1. 如果不纯度<=阈值,不分裂(min_impurity_split); 
+                2. 类别取值唯一,不分裂； 
+                3. 用于分裂结点的样本数小于min_samples_split,不分裂；
+                4. 分裂后的两个结点的样本个数不满足min_samples_leaf,不分裂；
+                5. 树深度>max_depth,不分裂；
+                '''
+                if min_gini >= self.params['min_impurity_split'] and len(data[y].unique()) > 1 and data.shape[0] > \
+                        self.params['min_samples_split'] and (
+                        data[min_gini_feature] > min_gini_feature_point).sum() >= self.params[
+                    'min_samples_leaf'] and (data[min_gini_feature] <= min_gini_feature_point).sum() >= self.params[
+                    'min_samples_leaf'] and depth <= self.params['max_depth']:
 
-                        splitting_feature = min_gini_feature
-                        splitting_point = min_gini_feature_point
+                    splitting_feature = min_gini_feature
+                    splitting_point = min_gini_feature_point
 
-                        # 确定分裂 --------------
-                        depth = depth + 1
-                        # print([splitting_feature, splitting_point])
+                    # 确定分裂 --------------
+                    depth = depth + 1
+                    # print([splitting_feature, splitting_point])
 
-                        for opera in ['>', '<=']: # 分别处理左右两个branch
-                            if opera == '>':  # 大于分裂点
-                                data_split_temp = data[data[splitting_feature] > splitting_point]
-                            else:  # 小等于分裂点
-                                data_split_temp = data[data[splitting_feature] <= splitting_point]
+                    for opera in ['>', '<=']: # 分别处理左右两个branch
+                        if opera == '>':  # 大于分裂点
+                            data_split_temp = data[data[splitting_feature] > splitting_point]
+                        else:  # 小等于分裂点
+                            data_split_temp = data[data[splitting_feature] <= splitting_point]
 
-                            data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
-                            # data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
-                            description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
+                        data_split_temp = self._drop_unique_column(data_split_temp)  # 分裂后删除取值唯一的特征
+                        # data_split_temp = _drop_unique_column(self=[], data=data_split_temp)
+                        description = ' '.join([str(splitting_feature), opera, str(splitting_point)])
 
-                            # 对于分裂后的结点的处理（判断是否满足叶子结点的条件，是否还要进行分裂）
-                            if len(data_split_temp[y].unique()) == 1:  # 1. 如果分裂后类别唯一，则停止分裂。结点为叶子结点，该类别即为输出。
-                                currentValue = data_split_temp[y].value_counts().idxmax()
-                                currentTree = {description: currentValue}
-                                subTree.update(currentTree)
+                        # 对于分裂后的结点的处理（判断是否满足叶子结点的条件，是否还要进行分裂）
+                        if len(data_split_temp[y].unique()) == 1:  # 1. 如果分裂后类别唯一，则停止分裂。结点为叶子结点，该类别即为输出。
+                            currentValue = data_split_temp[y].value_counts().idxmax()
+                            currentTree = {description: currentValue}
+                            subTree.update(currentTree)
 
-                            elif data_split_temp.shape[1] <= self.params[
-                                'max_features'] + 1:  # 2. 停止分裂判断：可用于分裂的特征小于最大特征阈值。最大类别即为输出。
-                                currentValue = data_split_temp[y].value_counts().idxmax()
-                                currentTree = {description: currentValue}
-                                subTree.update(currentTree)
+                        elif data_split_temp.shape[1] <= self.params[
+                            'max_features'] + 1:  # 2. 停止分裂判断：可用于分裂的特征小于最大特征阈值。最大类别即为输出。
+                            currentValue = data_split_temp[y].value_counts().idxmax()
+                            currentTree = {description: currentValue}
+                            subTree.update(currentTree)
 
-                            elif depth >= self.params['max_depth']:  # 3. 树深度达到最大深度，则停止分裂: 叶子结点为样本最多的类别
-                                currentValue = data_split_temp[y].value_counts().idxmax()
-                                currentTree = {description: currentValue}
-                                subTree.update(currentTree)
+                        elif depth >= self.params['max_depth']:  # 3. 树深度达到最大深度，则停止分裂: 叶子结点为样本最多的类别
+                            currentValue = data_split_temp[y].value_counts().idxmax()
+                            currentTree = {description: currentValue}
+                            subTree.update(currentTree)
 
-                            else:  # 分裂后结点非叶子结点，继续分裂
-                                currentTree = {description: data_split_temp}
-                                sub_subTree = self._Decision_Tree_binary(X=X, y=y, DTree=currentTree, depth=depth)
-                                subTree.update(sub_subTree)
+                        else:  # 分裂后结点非叶子结点，继续分裂
+                            currentTree = {description: data_split_temp}
+                            sub_subTree = self._Decision_Tree_binary(X=X, y=y, DTree=currentTree, depth=depth)
+                            subTree.update(sub_subTree)
 
-                    # 确定不分裂 结点作为叶子结点 -------
-                    else:
-                        # 1. 内部结点样本数小等于最小划分样本数阈值
-                        if data.shape[0] <= self.params['min_samples_split']:
-                            subTree = data[y].value_counts().idxmax()
-
-                        # 2. 类别值唯一
-                        elif len(data[y].unique()) <= 1:
-                            subTree = data[y].value_counts().idxmax()
-
-                        # 3. 分裂后叶子结点样本数少于min_samples_leaf, 不分裂
-                        elif ((data[min_gini_feature] > min_gini_feature_point).sum() < self.params['min_samples_leaf']) or ((data[min_gini_feature] <= min_gini_feature_point).sum() < self.params['min_samples_leaf']):
-                            subTree = data[y].value_counts().idxmax()
-
-                        # 4. 小等于基尼指数阈值
-                        elif min_gini < self.params['min_impurity_split']:
-                            subTree = data[y].value_counts().idxmax()
-
-                        # 5. 最大树深度
-                        elif depth >= self.params['max_depth']:
-                            subTree = data[y].value_counts().idxmax()
-
-                    DTree[key] = subTree  # 该叶子结点的分裂特征
+                # 确定不分裂 结点作为叶子结点 -------
                 else:
-                    raise Exception("The subTree's value is not a DataFrame !")
-            # print("-- Leaf Node --")
+                    # 1. 内部结点样本数小等于最小划分样本数阈值
+                    if data.shape[0] <= self.params['min_samples_split']:
+                        subTree = data[y].value_counts().idxmax()
+
+                    # 2. 类别值唯一
+                    elif len(data[y].unique()) <= 1:
+                        subTree = data[y].value_counts().idxmax()
+
+                    # 3. 分裂后叶子结点样本数少于min_samples_leaf, 不分裂
+                    elif ((data[min_gini_feature] > min_gini_feature_point).sum() < self.params['min_samples_leaf']) or ((data[min_gini_feature] <= min_gini_feature_point).sum() < self.params['min_samples_leaf']):
+                        subTree = data[y].value_counts().idxmax()
+
+                    # 4. 小等于基尼指数阈值
+                    elif min_gini < self.params['min_impurity_split']:
+                        subTree = data[y].value_counts().idxmax()
+
+                    # 5. 最大树深度
+                    elif depth > self.params['max_depth']:
+                        subTree = data[y].value_counts().idxmax()
+
+                DTree[key] = subTree  # 该叶子结点的分裂特征
+            else:
+                raise Exception("The subTree's value is not a DataFrame !")
+        # print("-- Leaf Node --")
 
         return DTree
 
