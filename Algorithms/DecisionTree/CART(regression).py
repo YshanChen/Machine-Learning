@@ -79,7 +79,7 @@ class CART(object):
         return data
 
     # 特征分裂，确定：(最优分裂特征，最优分裂点，最小平方损失)
-    def _feature_split(self, data):  # data=data; y=y
+    def _feature_split_regression(self, data):  # data=data; y=y
         feature_split_dic = {}
 
         # X个数
@@ -170,8 +170,8 @@ class CART(object):
             depth = 0
 
             # 计算: (平方损失函数) 划分特征，划分点，最小平方损失
-            split_list = self._feature_split(data=data)
-            # split_list = _feature_split(self=[], data=data)
+            split_list = self._feature_split_regression(data=data)
+            # split_list = _feature_split_regression(self=[], data=data)
 
             '''
             分裂判断：
@@ -250,8 +250,8 @@ class CART(object):
                 X = data.drop(['label'], axis=1).columns
 
                 # 计算: (平方损失函数) 划分特征，划分点，最小平方损失
-                split_list = self._feature_split(data=data)
-                # split_list = _feature_split(self=[], data=data)
+                split_list = self._feature_split_regression(data=data)
+                # split_list = _feature_split_regression(self=[], data=data)
 
                 '''
                 分裂判断：
