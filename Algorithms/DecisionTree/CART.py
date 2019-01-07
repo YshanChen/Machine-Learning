@@ -8,6 +8,8 @@ Update: 2018/12/27
 Update: 2019/01/04
 
 Commit：
+实现回归树与分类树两种场景；
+
 1. 完成基尼指数函数；
 2. 完成连续值的处理；
 3. 完成生成树；
@@ -17,7 +19,6 @@ Commit：
     3) max_features
     4) min_samples_split
     5) min_samples_leaf
-5. 完成回归树;
 
 Todo List:
 1. 缺失值的处理；1)如何在属性值缺失情况下特征选择？ 2)给定分裂特征，若样本在该特征上缺失，如何对样本进行划分？
@@ -320,10 +321,10 @@ class CART(object):
             1. 如果不纯度<=阈值,不分裂(min_impurity_split); 
             2. 类别取值唯一,不分裂； 
             3. 用于分裂结点的样本数小于min_samples_split,不分裂；
-            4. 分裂后的两个结点的样本个数不满足min_samples_leaf,不分裂；
+            4. 分裂后的两个结点的样本个数小于min_samples_leaf,不分裂；
             5. 树深度>max_depth,不分裂；
             '''
-            if min_gini >= self.params['min_impurity_split'] and len(data[y].unique()) > 1 and data.shape[0] > \
+            if min_gini >= self.params['min_impurity_split'] and len(data[y].unique()) > 1 and data.shape[0] >= \
                     self.params['min_samples_split'] and (data[min_gini_feature] > min_gini_feature_point).sum() >= \
                     self.params['min_samples_leaf'] and (data[min_gini_feature] <= min_gini_feature_point).sum() >= \
                     self.params['min_samples_leaf'] and depth <= self.params['max_depth']:
@@ -365,8 +366,8 @@ class CART(object):
 
             # 确定不分裂 -------
             else:
-                # 1. 内部结点样本数小等于最小划分样本数阈值
-                if data.shape[0] <= self.params['min_samples_split']:
+                # 1. 内部结点样本数小于最小划分样本数阈值
+                if data.shape[0] < self.params['min_samples_split']:
                     print("split_sample <= min_samples_split !")
 
                 # 2. 类别值唯一
@@ -413,10 +414,10 @@ class CART(object):
                 1. 如果不纯度<=阈值,不分裂(min_impurity_split); 
                 2. 类别取值唯一,不分裂； 
                 3. 用于分裂结点的样本数小于min_samples_split,不分裂；
-                4. 分裂后的两个结点的样本个数不满足min_samples_leaf,不分裂；
+                4. 分裂后的两个结点的样本个数小于min_samples_leaf,不分裂；
                 5. 树深度>max_depth,不分裂；
                 '''
-                if min_gini >= self.params['min_impurity_split'] and len(data[y].unique()) > 1 and data.shape[0] > \
+                if min_gini >= self.params['min_impurity_split'] and len(data[y].unique()) > 1 and data.shape[0] >= \
                         self.params['min_samples_split'] and (data[min_gini_feature] > min_gini_feature_point).sum() >= \
                         self.params['min_samples_leaf'] and (data[min_gini_feature] <= min_gini_feature_point).sum() >= \
                         self.params['min_samples_leaf'] and depth <= self.params['max_depth']:
@@ -462,8 +463,8 @@ class CART(object):
 
                 # 确定不分裂 结点作为叶子结点 -------
                 else:
-                    # 1. 内部结点样本数小等于最小划分样本数阈值
-                    if data.shape[0] <= self.params['min_samples_split']:
+                    # 1. 内部结点样本数小于最小划分样本数阈值
+                    if data.shape[0] < self.params['min_samples_split']:
                         subTree = data[y].value_counts().idxmax()
 
                     # 2. 类别值唯一
@@ -516,16 +517,16 @@ class CART(object):
             2. 分裂后的两个结点的样本个数小于min_samples_leaf,不分裂；
             3. 树深度>max_depth,不分裂；
             '''
-            if (data.shape[0] > self.params['min_samples_split']) & \
-                    ((data[split_list[0]] <= split_list[1]).sum() > self.params['min_samples_leaf']) & \
-                    ((data[split_list[0]] > split_list[1]).sum() > self.params['min_samples_leaf']) & \
+            if (data.shape[0] >= self.params['min_samples_split']) & \
+                    ((data[split_list[0]] <= split_list[1]).sum() >= self.params['min_samples_leaf']) & \
+                    ((data[split_list[0]] > split_list[1]).sum() >= self.params['min_samples_leaf']) & \
                     (depth <= self.params['max_depth']):
 
                 # 确定分裂 ---
                 split_feature = split_list[0]
                 split_feature_point = split_list[1]
                 depth = depth + 1
-                print(split_list)
+                # print(split_list)
 
                 # 分裂ing ---
                 for opera in ['<=', '>']:  # 分别处理左右两个branch  opera = '>'
@@ -559,13 +560,13 @@ class CART(object):
             # 确定不分裂 -------
             else:
                 # 1. 内部结点样本数小等于最小划分样本数阈值
-                if data.shape[0] <= self.params['min_samples_split']:
-                    print("split_sample <= min_samples_split !")
+                if data.shape[0] < self.params['min_samples_split']:
+                    print("split_sample < min_samples_split !")
 
                 # 2. 分裂后叶子结点样本数小等于min_samples_leaf, 不分裂
-                elif ((data[split_list[0]] <= split_list[1]).sum() <= self.params['min_samples_leaf']) or \
-                        ((data[split_list[0]] > split_list[1]).sum() <= self.params['min_samples_leaf']):
-                    print("samples_leaf <= min_samples_leaf !")
+                elif ((data[split_list[0]] <= split_list[1]).sum() < self.params['min_samples_leaf']) or \
+                        ((data[split_list[0]] > split_list[1]).sum() < self.params['min_samples_leaf']):
+                    print("samples_leaf < min_samples_leaf !")
 
                 # 3. 最大树深度
                 elif depth > self.params['max_depth']:
@@ -596,16 +597,16 @@ class CART(object):
                 2. 分裂后的两个结点的样本个数小于min_samples_leaf,不分裂；
                 3. 树深度>max_depth,不分裂；
                 '''
-                if (data.shape[0] > self.params['min_samples_split']) & \
-                        ((data[split_list[0]] <= split_list[1]).sum() > self.params['min_samples_leaf']) & \
-                        ((data[split_list[0]] > split_list[1]).sum() > self.params['min_samples_leaf']) & \
+                if (data.shape[0] >= self.params['min_samples_split']) & \
+                        ((data[split_list[0]] <= split_list[1]).sum() >= self.params['min_samples_leaf']) & \
+                        ((data[split_list[0]] > split_list[1]).sum() >= self.params['min_samples_leaf']) & \
                         (depth <= self.params['max_depth']):
 
                     # 确定分裂 ---
                     split_feature = split_list[0]
                     split_feature_point = split_list[1]
                     depth = depth + 1
-                    print(split_list)
+                    # print(split_list)
 
                     for opera in ['<=', '>']:  # 分别处理左右两个branch  opera = '>'
                         if opera == '>':  # 大于分裂点
@@ -642,13 +643,13 @@ class CART(object):
 
                 # 确定不分裂 结点作为叶子结点 -------
                 else:
-                    # 1. 内部结点样本数小等于最小划分样本数阈值
-                    if data.shape[0] <= self.params['min_samples_split']:
+                    # 1. 内部结点样本数小于最小划分样本数阈值
+                    if data.shape[0] < self.params['min_samples_split']:
                         subTree = data['label'].mean()
 
                     # 2. 分裂后叶子结点样本数少于min_samples_leaf, 不分裂
-                    elif ((data[split_list[0]] <= split_list[1]).sum() <= self.params['min_samples_leaf']) or \
-                            ((data[split_list[0]] > split_list[1]).sum() <= self.params['min_samples_leaf']):
+                    elif ((data[split_list[0]] <= split_list[1]).sum() < self.params['min_samples_leaf']) or \
+                            ((data[split_list[0]] > split_list[1]).sum() < self.params['min_samples_leaf']):
                         subTree = data['label'].mean()
 
                     # 3. 最大树深度
@@ -701,12 +702,12 @@ class CART(object):
 
 # # --------------------------------- 数据测试 -------------------------------------- #
 # onehot
-def one_hot_encoder(data, categorical_features, nan_as_category=True):
-    original_columns = list(data.columns)
-    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
-    new_columns = [c for c in data.columns if c not in original_columns]
-    del original_columns
-    return data, new_columns
+# def one_hot_encoder(data, categorical_features, nan_as_category=True):
+#     original_columns = list(data.columns)
+#     data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
+#     new_columns = [c for c in data.columns if c not in original_columns]
+#     del original_columns
+#     return data, new_columns
 
 
 # # 1.西瓜数据集 [bianry] --------------------------------------------
@@ -730,87 +731,87 @@ def one_hot_encoder(data, categorical_features, nan_as_category=True):
 # y_test = clf.predict(new_data=X)
 
 # # 2.Kaggle Titanic Data [binary] ----------------------------------------------------
-# 读取数据
-train = pd.read_csv('Data/train_fixed.csv')
-test = pd.read_csv('Data/test_fixed.csv')
-
-train, cates = one_hot_encoder(data=train,
-                               categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
-                               nan_as_category=False)
-test, cates = one_hot_encoder(data=test,
-                              categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
-                              nan_as_category=False)
-
-# 分割数据
-train_train, train_test = train_test_split(train, test_size=0.4, random_state=0)
-
-X_train = train_train.drop(['Survived'], axis=1)
-y_train = train_train['Survived']
-X_test = train_test.drop(['Survived'], axis=1)
-y_test = train_test['Survived']
-
-X_Train = train.drop(['Survived'], axis=1)
-y_Train = train['Survived']
-
-clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=5)
-clf.fit(X=X_train, y=y_train)
-clf.DTree
-y_test_pred = clf.predict(new_data=X_test)
-
-# 分类器
-AUC_list = pd.Series([])
-for max_depth in np.arange(1, 10, 1):
-    print(max_depth)
-    clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=max_depth)
-
-    # 训练
-    # start = time.clock()
-    clf.fit(X=X_train, y=y_train)
-    # elapsed = (time.clock() - start)
-    # print("Train Model Time : ", elapsed)
-    # 打印树
-    clf.DTree
-    # 预测
-    # start = time.clock()
-    y_test_pred = clf.predict(new_data=X_test)
-    # elapsed = (time.clock() - start)
-    # print("Predict Model Time : ", elapsed)
-
-    # AUC
-    pre_dt = pd.DataFrame({'Y': train_test['Survived'], 'pre_Y': y_test_pred})
-    AUC_list.set_value(max_depth, roc_auc_score(pre_dt.Y, pre_dt.pre_Y))
-AUC_df = pd.DataFrame(AUC_list, columns=['AUC'])
-AUC_df['max_depth'] = AUC_df.index
-
-import seaborn as sns
-sns.jointplot(x='max_depth', y='AUC', data=AUC_df)
-
-# Submit
-clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=5)
-clf.fit(X=X_Train, y=y_Train)
-
-pre_Y = clf.predict(new_data=test)  # Parch = 9， 训练集未出现， 以该集合下最大类别代替
-submit = pd.DataFrame({'PassengerId': np.arange(892, 1310), 'Survived': pre_Y})
-submit.loc[:, 'Survived'] = submit.loc[:, 'Survived'].astype('category')
-submit['Survived'].cat.categories
-submit.to_csv('Result/submit_20190103.csv', index=False)
-
-# 3. Boston Housing [regression] ------------------------------------------
-train = pd.read_csv('data/boston_train.csv')
-test = pd.read_csv('data/boston_test.csv')
-submission = pd.read_csv('data/boston_submisson_example.csv')
-train_X = train.drop(['ID', 'medv'], axis=1)
-train_Y = train['medv']
-train_X, cates = one_hot_encoder(data=train_X, categorical_features=['rad'], nan_as_category=False)
-test_X = test.drop(['ID'], axis=1)
-test_X, cates = one_hot_encoder(data=test_X, categorical_features=['rad'], nan_as_category=False)
-
-rgs = CART(objective='regression', max_depth=5)
-rgs.params
-rgs.fit(X=train_X, y=train_Y)
-rgs.DTree
-
-test_y_pred = rgs.predict(new_data=test_X)
-submission['medv'] = test_y_pred
-submission.to_csv('Result/Boston_Housing_190104.csv', index=False)
+# # 读取数据
+# train = pd.read_csv('Data/train_fixed.csv')
+# test = pd.read_csv('Data/test_fixed.csv')
+#
+# train, cates = one_hot_encoder(data=train,
+#                                categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+#                                nan_as_category=False)
+# test, cates = one_hot_encoder(data=test,
+#                               categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+#                               nan_as_category=False)
+#
+# # 分割数据
+# train_train, train_test = train_test_split(train, test_size=0.4, random_state=0)
+#
+# X_train = train_train.drop(['Survived'], axis=1)
+# y_train = train_train['Survived']
+# X_test = train_test.drop(['Survived'], axis=1)
+# y_test = train_test['Survived']
+#
+# X_Train = train.drop(['Survived'], axis=1)
+# y_Train = train['Survived']
+#
+# clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=5)
+# clf.fit(X=X_train, y=y_train)
+# clf.DTree
+# y_test_pred = clf.predict(new_data=X_test)
+#
+# # 分类器
+# AUC_list = pd.Series([])
+# for max_depth in np.arange(1, 10, 1):
+#     print(max_depth)
+#     clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=max_depth)
+#
+#     # 训练
+#     # start = time.clock()
+#     clf.fit(X=X_train, y=y_train)
+#     # elapsed = (time.clock() - start)
+#     # print("Train Model Time : ", elapsed)
+#     # 打印树
+#     clf.DTree
+#     # 预测
+#     # start = time.clock()
+#     y_test_pred = clf.predict(new_data=X_test)
+#     # elapsed = (time.clock() - start)
+#     # print("Predict Model Time : ", elapsed)
+#
+#     # AUC
+#     pre_dt = pd.DataFrame({'Y': train_test['Survived'], 'pre_Y': y_test_pred})
+#     AUC_list.set_value(max_depth, roc_auc_score(pre_dt.Y, pre_dt.pre_Y))
+# AUC_df = pd.DataFrame(AUC_list, columns=['AUC'])
+# AUC_df['max_depth'] = AUC_df.index
+#
+# import seaborn as sns
+# sns.jointplot(x='max_depth', y='AUC', data=AUC_df)
+#
+# # Submit
+# clf = CART(objective='binary', min_samples_split=5, min_samples_leaf=2, max_depth=5)
+# clf.fit(X=X_Train, y=y_Train)
+#
+# pre_Y = clf.predict(new_data=test)  # Parch = 9， 训练集未出现， 以该集合下最大类别代替
+# submit = pd.DataFrame({'PassengerId': np.arange(892, 1310), 'Survived': pre_Y})
+# submit.loc[:, 'Survived'] = submit.loc[:, 'Survived'].astype('category')
+# submit['Survived'].cat.categories
+# submit.to_csv('Result/submit_20190103.csv', index=False)
+#
+# # 3. Boston Housing [regression] ------------------------------------------
+# train = pd.read_csv('data/boston_train.csv')
+# test = pd.read_csv('data/boston_test.csv')
+# submission = pd.read_csv('data/boston_submisson_example.csv')
+# train_X = train.drop(['ID', 'medv'], axis=1)
+# train_Y = train['medv']
+# train_X, cates = one_hot_encoder(data=train_X, categorical_features=['rad'], nan_as_category=False)
+# test_X = test.drop(['ID'], axis=1)
+# test_X, cates = one_hot_encoder(data=test_X, categorical_features=['rad'], nan_as_category=False)
+#
+# rgs = CART(objective='regression', max_depth=5)
+# rgs.params
+# rgs.fit(X=train_X, y=train_Y)
+# rgs.DTree
+#
+# test_y_pred = rgs.predict(new_data=test_X)
+# submission['medv'] = test_y_pred
+# submission.to_csv('Result/Boston_Housing_190104.csv', index=False)
 
