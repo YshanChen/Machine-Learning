@@ -8,10 +8,10 @@ Created on 2019/01/07
 """
 
 """
-问题：
+问题 & Tolist：
 1. P的线性搜索区间？
+2. 增加watch_list, 迭代过程中实时显示训练集和测试集损失
 """
-
 
 sys.path.append('Algorithms/DecisionTree')
 from CART import CART
@@ -43,13 +43,15 @@ test_X, cates = one_hot_encoder(data=test_X, categorical_features=['rad'], nan_a
 
 
 m = train_X.shape[0]
-K = 10
+K = 30
 loss_function = 'square loss'
 
-F0 = 1/m*train_Y.mean()
-
-for k in np.arange(1,K+1):  # k = 1
-    print("第", k, "个基学习器：")
+F0 = train_Y.mean()
+base_learner_list = []
+P_opt_list = []
+loss_min_list = []
+for k in np.arange(1,K+1):  # k = 1 k = 9
+    print("第", k, "个基学习器：-------------------------------------------")
 
     # 0. 设定 F_pre_k
     if k == 1:
@@ -58,7 +60,7 @@ for k in np.arange(1,K+1):  # k = 1
         F_pre_k = F_k
 
     # 1. 计算 response, 负梯度；
-    if loss_function == 'square loss':
+    if loss_function == 'square loss':   # 平方损失函数
         y_reponse = (train_Y - F_pre_k).rename("y_response")
 
     # 2. 构建一个基学习器，拟合y_reponse. 即针对数据集{x,y}=>{x,y_reponse}构建学习器；
@@ -78,9 +80,32 @@ for k in np.arange(1,K+1):  # k = 1
             p_opt = p
     print("最小损失： ", loss_min)
 
+    # save base_learner and P_opt
+    base_learner_list.append(f_k_learner)
+    P_opt_list.append(p_opt)
+    loss_min_list.append(loss_min)
+
     # 4. 赋值： fk = p*fk; Fk = Fk-1 + fk
     f_k = p_opt * f_k
     F_k = F_pre_k + f_k
+
+# 预测
+# F_k = sum(f_k) for 1 to K
+new_data = test_X
+F = F0
+for k in np.arange(0, K): # k = 0
+    print(k)
+    print(base_learner_list[k])
+    print(P_opt_list[k])
+
+    base_learner = base_learner_list[k]
+    y_k = base_learner.predict(new_data=new_data)
+    p_k = P_opt_list[k]
+    F = F + p_k*y_k
+y_pred = F
+submission['medv'] = y_pred
+submission.to_csv('Result/Boston_Housing_190108_GBDT.csv', index=False)
+
 
 
 
