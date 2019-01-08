@@ -26,6 +26,13 @@ Todo List:
 3. 预测-并行化
 """
 
+# train_X_raw = train_X
+# train_Y_raw = y_reponse
+# f_k_learner = CART(objective='regression', max_depth=5)
+# f_k_learner.fit(X=train_X_raw, y=train_Y_raw)
+#
+# params = {'min_impurity_split':0.005, 'max_features':0, 'max_depth':5, 'min_samples_split':5,'min_samples_leaf':1}
+
 import numpy as np
 import pandas as pd
 from math import log
@@ -493,7 +500,7 @@ class CART(object):
         return DTree
 
     # 回归-训练
-    def _Decision_Tree_regression(self, X, y, DTree={}, depth=0):  # X=train_X; y=train_Y; DTree={}; depth=0
+    def _Decision_Tree_regression(self, X, y, DTree={}, depth=0):  # X=train_X_raw; y=train_Y_raw; DTree={}; depth=0
         # 初次分裂
         if DTree == {}:
 
@@ -521,12 +528,13 @@ class CART(object):
                     ((data[split_list[0]] <= split_list[1]).sum() >= self.params['min_samples_leaf']) & \
                     ((data[split_list[0]] > split_list[1]).sum() >= self.params['min_samples_leaf']) & \
                     (depth <= self.params['max_depth']):
+            # (data.shape[0] >= params['min_samples_split']) & ((data[split_list[0]] <= split_list[1]).sum() >= params['min_samples_leaf']) & ((data[split_list[0]] > split_list[1]).sum() >= params['min_samples_leaf']) & (depth <= params['max_depth'])
 
                 # 确定分裂 ---
                 split_feature = split_list[0]
                 split_feature_point = split_list[1]
                 depth = depth + 1
-                # print(split_list)
+                print(split_list)
 
                 # 分裂ing ---
                 for opera in ['<=', '>']:  # 分别处理左右两个branch  opera = '>'
@@ -540,10 +548,12 @@ class CART(object):
                     description = ' '.join([str(split_feature), opera, str(split_feature_point)])
 
                     # 对于分裂后的结点的处理（判断是否满足叶子结点的条件，是否还要进行分裂）
-                    # if len(data_split_temp[y].unique()) == 1:  # 1. 如果分裂后类别唯一，则停止分裂。结点为叶子结点，该类别即为输出。
-                    #     currentValue = data_split_temp[y].value_counts().idxmax()
-                    #     currentTree = {description: currentValue}
-                    #     DTree.update(currentTree)
+                    if data_split_temp.shape[0] == 1:  # 1. 如果分裂后仅有一个样本，则停止分裂。结点为叶子结点，该label即为输出。
+                        currentValue = round(data_split_temp['label'].mean(),8)
+                        currentTree = {description: currentValue}
+                        DTree.update(currentTree)
+                        print("leaf node 1: ", currentValue)
+                        print('分裂后仅有一个样本')
 
                     # if data_split_temp.shape[1] <= self.params[
                     #     'max_features'] + 1:  # 2. 停止分裂判断：可用于分裂的特征小于最大特征阈值。最大类别即为输出。
@@ -551,11 +561,12 @@ class CART(object):
                     #     currentTree = {description: currentValue}
                     #     DTree.update(currentTree)
 
-                    # 分裂后结点非叶子结点，继续分裂
-                    currentTree = {description: data_split_temp}
-                    sub_subTree = self._Decision_Tree_regression(X=X, y='label', DTree=currentTree, depth=depth)
-                    # X=X; y='label'; DTree=currentTree; depth=depth
-                    DTree.update(sub_subTree)
+                    else:
+                        # 分裂后结点非叶子结点，继续分裂
+                        currentTree = {description: data_split_temp}
+                        sub_subTree = self._Decision_Tree_regression(X=X, y='label', DTree=currentTree, depth=depth)
+                        # X=X; y='label'; DTree=currentTree; depth=depth
+                        DTree.update(sub_subTree)
 
             # 确定不分裂 -------
             else:
@@ -606,7 +617,7 @@ class CART(object):
                     split_feature = split_list[0]
                     split_feature_point = split_list[1]
                     depth = depth + 1
-                    # print(split_list)
+                    print(split_list)
 
                     for opera in ['<=', '>']:  # 分别处理左右两个branch  opera = '>'
                         if opera == '>':  # 大于分裂点
@@ -626,14 +637,18 @@ class CART(object):
 
                         if data_split_temp.shape[1] <= self.params[
                             'max_features'] + 1:  # 1. 停止分裂判断：可用于分裂的特征小于最大特征阈值。c = avg(y)
-                            currentValue = data_split_temp['label'].mean()
+                            currentValue = round(data_split_temp['label'].mean(), 8)
                             currentTree = {description: currentValue}
                             subTree.update(currentTree)
+                            print("leaf node 2: ", currentValue)
+                            print("可用于分裂的特征小于最大特征阈值")
 
                         elif depth >= self.params['max_depth']:  # 2. 树深度达到最大深度，则停止分裂: c = avg(y)
-                            currentValue = data_split_temp['label'].mean()
+                            currentValue = round(data_split_temp['label'].mean(), 8)
                             currentTree = {description: currentValue}
                             subTree.update(currentTree)
+                            print("leaf node 3: ", currentValue)
+                            print("最大深度")
 
                         else:  # 分裂后结点非叶子结点，继续分裂
                             currentTree = {description: data_split_temp}
@@ -645,16 +660,22 @@ class CART(object):
                 else:
                     # 1. 内部结点样本数小于最小划分样本数阈值
                     if data.shape[0] < self.params['min_samples_split']:
-                        subTree = data['label'].mean()
+                        subTree = round(data['label'].mean(), 8)
+                        print("leaf node 4: ", subTree)
+                        print('内部结点样本数小于最小划分样本数阈值')
 
                     # 2. 分裂后叶子结点样本数少于min_samples_leaf, 不分裂
                     elif ((data[split_list[0]] <= split_list[1]).sum() < self.params['min_samples_leaf']) or \
                             ((data[split_list[0]] > split_list[1]).sum() < self.params['min_samples_leaf']):
-                        subTree = data['label'].mean()
+                        subTree = round(data['label'].mean(), 8)
+                        print("leaf node : 5", subTree)
+                        print('分裂后叶子结点样本数少于min_samples_leaf')
 
                     # 3. 最大树深度
                     elif depth > self.params['max_depth']:
-                        subTree = data['label'].mean()
+                        subTree = round(data['label'].mean(), 8)
+                        print("leaf node 6: ", subTree)
+                        print('最大树深度')
 
                 DTree[key] = subTree  # 该叶子结点的分裂特征
             else:
