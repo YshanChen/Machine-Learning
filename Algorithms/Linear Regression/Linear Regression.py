@@ -1,263 +1,174 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# -*- coding: utf8 -*-
 """
-Created on Sun May 20 15:41:40 2018
+Created on 2019/01/17
+@author: Yshan.Chen
 
-@author: chenys
+Linear Regression
+Gradient Descend
+
 """
-# 1. sklearn
-# 2. 正规方程
-# 3. 梯度下降法
 
-from sklearn import linear_model
+"""
+Todo list:
+1. 加入正则项 L1， L2
+"""
+
 import numpy as np
-import scipy as sp
 import pandas as pd
-
-# Data ------------------------------------------------
-# 线性
-df_1 = pd.DataFrame({'y' : [0,3,6], 'x1':[0,1,2], 'x2' : [0,1,2]},columns=['y','x1','x2'])
-df_2 = pd.DataFrame({'y' : [0,3,6], 'x0':[1,1,1], 'x1':[0,1,2], 'x2' : [0,1,2]},columns=['y','x0','x1','x2'])
-
-# 1. sklearn 实现 Linear Reg ---------------------------------------------
-reg = linear_model.LinearRegression()
-
-reg.fit(X=df_2[['x0','x1','x2']],y=df.y)
-
-reg.coef_
-reg.intercept_
-
-# 2. 正规方程  ---------------------------------------------
-# 1）不需要归一化特征
-# 2）不适合特征数多的情况，计算量O(n^3), 千位级OK
-
-def normal_equation(data):
-    # 矩阵转换
-    sample_number = data.shape[0]
-    theta_number = data.shape[1] - 1 + 1
-
-    y = np.mat(data['y']).T
-<<<<<<< HEAD
-    x_1 = data.drop(['y'], axis=1).reset_index(drop=True)
-    x_0 = pd.DataFrame({'x0': np.repeat(1, sample_number)}).reset_index(drop=True)
-=======
-    x_1 = data.drop(['y'], axis=1)
-    x_0 = pd.DataFrame({'x0': np.repeat(1, sample_number)})
->>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
-    X = np.mat(pd.concat([x_0, x_1], axis=1))
-
-    # 逆矩阵 & 转置矩阵
-    X_T = X.T
-
-    # 是否存在（X_T*X）的逆矩阵
-    try:
-        theta_opt = (X_T * X).I * X_T * y
-    except:
-        theta_opt = np.linalg.pinv(X_T * X) * X_T * y # pesudo_inverse
-
-    return theta_opt
-
-<<<<<<< HEAD
-=======
-# 预测 (不加截距项)
-def predict(X, theta = theta_opt):
-    # 矩阵转换
-    x_1 = X
-    x_0 = pd.DataFrame({'x0': np.repeat(1, X.shape[0])})
-    X = np.mat(pd.concat([x_0, x_1], axis=1))
-
-    # 计算
-    y = X * theta
-
-    return y
-
-# 最优参数
-theta_opt = normal_equation(df_1)
-
-y = predict(X = pd.DataFrame({'x1':[1,2,3,4,5],'x2':[1,3,5,7,9]}))
-
->>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
-# 3. 梯度下降法 (矩阵形式) (不需要归一化特征) --------------------------------
-# 1）需要归一化特征
-# 2）适合特征数多的情况
-
-# 损失函数
-def cost_function(theta, X, y):
-    cost_function = np.array(sum(np.power(X*theta-y,2)))
-    return cost_function
-
-# 梯度下降
-def gradient_descent(data, eta = 0.1, delta = 0.000001):
-    # 矩阵转换
-    sample_number = data.shape[0]
-    theta_number = data.shape[1] - 1 + 1
-
-    y = np.mat(data['y']).T
-<<<<<<< HEAD
-    x_1 = data.drop(['y'], axis=1).reset_index(drop=True)
-    x_0 = pd.DataFrame({'x0': np.repeat(1, sample_number)}).reset_index(drop=True)
-=======
-    x_1 = data.drop(['y'], axis=1)
-    x_0 = pd.DataFrame({'x0': np.repeat(1, sample_number)})
->>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
-    X = np.mat(pd.concat([x_0, x_1], axis=1))
-
-    # 参数初始化
-    theta = np.mat(np.repeat(0, theta_number)).T
-    theta_number = X.shape[1]
-    theta_next = np.mat(np.repeat(np.nan, theta_number)).T
-
-    while True:
-        for theta_i in np.arange(0, theta_number):
-            theta_next[theta_i] = theta[theta_i] - eta * (1/sample_number) * (X[:,theta_i].T * (X * theta - y))
-
-        if (cost_function(theta, X, y) - cost_function(theta_next, X, y)<delta):
-            theta_opt = theta_next
-            return theta_opt
-            break
-        else:
-            theta = theta_next
-            theta_next = np.mat(np.repeat(np.nan, theta_number)).T
-
-# 预测 (不加截距项)
-def predict(X, theta = theta_opt):
-    # 矩阵转换
-<<<<<<< HEAD
-    x_1 = X.reset_index(drop=True)
-    x_0 = pd.DataFrame({'x0': np.repeat(1, X.shape[0])}).reset_index(drop=True)
-=======
-    x_1 = X
-    x_0 = pd.DataFrame({'x0': np.repeat(1, X.shape[0])})
->>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
-    X = np.mat(pd.concat([x_0, x_1], axis=1))
-
-    # 计算
-    y = X * theta
-
-    return y
-
-<<<<<<< HEAD
-# 实际案例 -----------------------------------------------------------------
-# 数据：http://archive.ics.uci.edu/ml/machine-learning-databases/00294/
-# 里面是一个循环发电场的数据，共有9568个样本数据，每个数据有5列，分别是:AT（温度）, V（压力）, AP（湿度）, RH（压强）, PE（输出电力)。
-
-# 1. sklearn ---------------------------------------------------------
+from math import log
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+import re
+import time
+import sys
 import matplotlib.pyplot as plt
-import matplotlib as mp
-%matplotlib inline
-mp.use('TkAgg')
-from sklearn import datasets, linear_model
+import seaborn as sns
 
-# read Data
-data = pd.read_csv('/Users/chenys/Documents/Machine Learning/Algorithms/Algorithms/Linear Regression/data.csv')
-X = data[['AT', 'V', 'AP', 'RH']]
-X.head()
-y = data[['PE']]
-y.head()
+class LR(object):
 
-# 划分训练集和测试集
-from sklearn.cross_validation import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
+    def __init__(self):
+        self.W_opt = None
+        self.J_function_df = None
+        self.X_columns = None
 
-print(X_train.shape)
-print(y_train.shape)
-print(X_test.shape)
-print(y_test.shape)
+    def fit(self, X, y, eta=0.1, iter_rounds=2000, regularization=None, X_test=None, y_test=None):  # X=X_Train; y=y_Train
+        if X_test is not None and y_test is not None:
+            have_test_flag = 1
+            X_test = X_test.values
+            y_test = y_test.reshape((-1, 1))
+            J_list_test = {}
+        else:
+            have_test_flag = 0
 
-# 运行scikit-learn的线性模型
-from sklearn.linear_model import LinearRegression
-linreg = LinearRegression()
-linreg.fit(X_train, y_train)
+        self.X_columns = X.columns.values
+        Data = X.copy()
+        Data['label'] = y
+        m = Data.shape[0]  # sample number
+        n = X.shape[1]  # features number
 
-# paras
-print(linreg.intercept_) # [447.06297099]
-print(linreg.coef_) # [[-1.97376045 -0.23229086  0.0693515  -0.15806957]]
-# PE=447.06297099−1.97376045∗AT−0.23229086∗V+0.0693515∗AP−0.15806957∗RH　
+        X = Data.drop(['label'], axis=1).values
+        y = Data['label'].values.reshape((-1, 1))
+        W_new = np.random.rand(n, 1) * 0.0001 # 初始化参数
 
-# 模型评价
-#模型拟合测试集
-y_pred = linreg.predict(X_test)
-from sklearn import metrics
-# 用scikit-learn计算MSE
-print("MSE:",metrics.mean_squared_error(y_test, y_pred)) # MSE: 20.080401202073897
-# 用scikit-learn计算RMSE
-print("RMSE:",np.sqrt(metrics.mean_squared_error(y_test, y_pred))) # RMSE: 4.481116066570236
+        J_list = {}
+        W_list = {}
 
-# 2. 正规方程 ---------------------------------------------------------
-X_train.head()
-y_train.columns = ['y']
-train = pd.concat([y_train, X_train], axis=1)
+        for iter in np.arange(0, iter_rounds):  # iter=34
+            print('iter:', iter)
+            W = W_new
 
-X_test.head()
-y_test.columns = ['y']
-test = pd.concat([y_test, X_test], axis=1)
+            h_current = self._Logistic_Regression(X=X, W=W)
+            J = - 1 / m * (np.multiply(y, np.log(h_current)) + np.multiply((1 - y), np.log(1 - h_current))).sum()
 
-data = data[['PE','AT', 'V', 'AP', 'RH']]
-data.columns = ['y','AT', 'V', 'AP', 'RH']
+            # print("J:", round(J, 4))
+            J_list[iter] = J
+            W_list[iter] = W
 
-intercept_coef = normal_equation(data=train) 
+            # Test
+            if have_test_flag == 1:
+                h_current_test = self._Logistic_Regression(X=X_test, W=W)
+                J_test = - 1 / m * (np.multiply(y_test, np.log(h_current_test)) + np.multiply((1 - y_test), np.log(
+                    1 - h_current_test))).sum()
+                J_list_test[iter] = J_test
 
-#matrix([[ 4.47062971e+02],
-#        [-1.97376045e+00],
-#        [-2.32290859e-01],
-#        [ 6.93514994e-02],
-#        [-1.58069568e-01]])
-# 一致 :)
+            W_new = np.zeros((n, 1))
+            for x_index in np.arange(0, W.shape[0]):  # x_index=0
+                # print(x_index)
+                W_new[x_index] = W[x_index] - eta * (np.multiply((h_current - y), X.T[x_index].reshape((-1, 1))).sum() / m)
 
-y_pred = predict(X = X_test, theta = intercept_coef)
+        # 学习曲线
+        J_function_df = pd.DataFrame(list(J_list.items()), columns=['iter', 'J_function'])
+        if have_test_flag == 1:
+            J_function_df['J_function_Test'] = J_list_test.values()
+        self.J_function_df = J_function_df
 
-print("MSE:",metrics.mean_squared_error(y_test, y_pred)) # MSE: 20.080401202073897 VS 20.08040120234207
-print("RMSE:",np.sqrt(metrics.mean_squared_error(y_test, y_pred))) # RMSE: 4.481116066570236 VS RMSE: 4.4811160666001575
+        # 最优参数
+        self.W_opt = W_list[iter_rounds - 1]
 
-# Plot
-from ggplot import *
-data = pd.read_csv('/Users/chenys/Documents/Machine Learning/Algorithms/Algorithms/Linear Regression/data.csv')
-X = data[['AT', 'V', 'AP', 'RH']]
-y = data[['PE']]
-Y_pred = pd.DataFrame(predict(X = X, theta = intercept_coef))
-Y_pred.columns = ['PE']
-df = pd.concat([y, Y_pred], axis=1)
+    def predict(self, new_data):  # 逐条预测，未实现并行化
+        if self.W_opt is None:
+            print("There is no optimal parameters, fit a model first !")
+        elif (self.X_columns == new_data.columns.values).all():
+            pred_Y = self._Logistic_Regression(X=new_data, W=self.W_opt)
+            pred_Y = pred_Y.reshape((-1, ))
+        else:
+            print("New Data columns is not same as Train !")
+        return pred_Y
 
-pic = ggplot(aes(x = 'y', y = 'Y_pred'), data = df)
-pic + geom_point()
+    def plot_CostFunction(self):
+        if self.J_function_df is None:
+            print("There is no cost function Dataframe, fit a model first !")
+        else:
+            columns = self.J_function_df.columns[1:]
+            mycolors = ['tab:red', 'tab:blue']
 
-# 3. 梯度下降 ---------------------------------------------------------
+            plt.figure(figsize=(16, 10), dpi=80)
+            for i, column in enumerate(columns):
+                plt.plot('iter', column, data=self.J_function_df, color=mycolors[i])
+                plt.text(self.J_function_df.shape[0] + 20, self.J_function_df[column].values[-1], column, fontsize=14, color=mycolors[i])
 
-theta_gradient = gradient_descent(data=train)
+            plt.title("Cost function", fontsize=22)
+            plt.xlabel("Iter")
+            plt.ylabel("Cost Function")
+            plt.grid(axis='both', alpha=.3)
+            plt.show()
 
-#matrix([[4.54218423e+01],
-#        [8.83179245e+02],
-#        [2.45222007e+03],
-#        [4.60261172e+04],
-#        [3.33543833e+03]])
-# 不一致 :(
+    def _Logistic_Regression(self, X, W):
+        # X shape is (sample_num, features_num)
+        # W shape is (features_num, 1)
+        # h shape is (sample_num, 1)
 
-# 预测
-y_pred = predict(X = X_test, theta = theta_gradient)
+        if X.shape[1] != W.shape[0]:
+            print("Error: (dim 1) != (dim 0) !")
+        else:
+            sigma = np.dot(X, W)
+            h = 1 / (1 + np.exp(-sigma))
+        return h
 
-print("MSE:",metrics.mean_squared_error(y_test, y_pred)) # MSE: 20.080401202073897 VS 2212899194773287
-print("RMSE:",np.sqrt(metrics.mean_squared_error(y_test, y_pred))) # RMSE: 4.481116066570236 VS RMSE: 47041462.50674279
+# ------------------------------- Test ----------------------------------
+# 2.Kaggle Titanic Data [binary]
+def one_hot_encoder(data, categorical_features, nan_as_category=True):
+    original_columns = list(data.columns)
+    data = pd.get_dummies(data, columns=categorical_features, dummy_na=nan_as_category)
+    new_columns = [c for c in data.columns if c not in original_columns]
+    del original_columns
+    return data, new_columns
 
-# Plot
-data = pd.read_csv('/Users/chenys/Documents/Machine Learning/Algorithms/Algorithms/Linear Regression/data.csv')
-X = data[['AT', 'V', 'AP', 'RH']]
-y = data[['PE']]
-Y_pred = pd.DataFrame(predict(X = X, theta = theta_gradient))
-Y_pred.columns = ['PE']
-df = pd.concat([y, Y_pred], axis=1)
+# 读取数据
+train = pd.read_csv('Data/train_fixed.csv')
+test = pd.read_csv('Data/test_fixed.csv')
+train_test = pd.concat([train, test], axis=0)
 
-pic = ggplot(aes(x = 'y', y = 'Y_pred'), data = df)
-pic + geom_point()
+train_test, cates = one_hot_encoder(data=train_test,
+                               categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+                               nan_as_category=False)
 
+train = train_test[~np.isnan(train_test['Survived'])]
+test = train_test[np.isnan(train_test['Survived'])].drop(['Survived'], axis=1)
 
+# 分割数据
+train_train, train_test = train_test_split(train, test_size=0.4, random_state=0)
+X_train = train_train.drop(['Survived'], axis=1)
+y_train = train_train['Survived']
+X_test = train_test.drop(['Survived'], axis=1)
+y_test = train_test['Survived']
+X_Train = train.drop(['Survived'], axis=1)
+y_Train = train['Survived']
 
+# Test
+clf = LR()
+clf.fit(X=X_Train, y=y_Train, eta=0.03, iter_rounds=5000,  X_test=X_test, y_test=y_test)
+clf.J_function_df
+clf.plot_CostFunction()
 
+pred_Y = clf.predict(new_data=X_test)
+pred_dt = pd.DataFrame(y_test)
+pred_dt['pred_Y'] = pred_Y
+roc_auc_score(pred_dt.Survived, pred_dt.pred_Y)  # 0.8578
 
-
-
-=======
-# 最优参数
-theta_opt = gradient_descent(data=df_1)
-
-y = predict(X = pd.DataFrame({'x1':[1,2,3,4,5],'x2':[1,3,5,7,9]}))
->>>>>>> dd01e8b45af3171b6d17205db397fa5eeeca93bf
+# Submit
+pre_Y = clf.predict(new_data=test)  # Parch = 9， 训练集未出现， 以该集合下最大类别代替
+submit = pd.DataFrame({'PassengerId': np.arange(892, 1310), 'Survived': (pre_Y>=0.5).astype('int')})
+submit.loc[:, 'Survived'] = submit.loc[:, 'Survived'].astype('category')
+submit['Survived'].cat.categories
+submit.to_csv('Result/submit_20190119_LR.csv', index=False)
