@@ -26,7 +26,7 @@
 >
 >**找到参数使得全部样本出现的概率最大：**
 >
->$$\max \limits_{w,b} \prod p(y|x) = \prod (\hat{y_i}^{y_i}·(1-\hat{y_i})^{(1-y_i)}) = \sum y_i log(\hat{y_i})+(1-y_i)log(1-\hat{y_i})$$
+>$$\max \limits_{w,b} \prod p(y|x) = \prod (\hat{y_i}^{y_i}·(1-\hat{y_i})^{(1-y_i)}) = \sum y_i log(\hat{y_i})+(1-y_i)log(1-\hat{y_i})​$$
 >
 >转为最小化：
 >
@@ -54,4 +54,8 @@
 >\end{align}$$
 
 
+
+### 4. 梯度推导
+
+https://my.oschina.net/chensanti234/blog/1563455
 
