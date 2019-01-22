@@ -9,8 +9,9 @@ Gradient Descend
 """
 
 """
-Todo list:
-1. 加入正则项 L1， L2
+【待确认】
+代价函数 = 1/m * (损失函数 + 正则项) 正则项也要除以m, 梯度计算亦然。
+否则相当于正则项的影响放大了m倍。
 """
 
 import numpy as np
@@ -31,7 +32,22 @@ class LR(object):
         self.J_function_df = None
         self.X_columns = None
 
-    def fit(self, X, y, eta=0.1, iter_rounds=2000, regularization=None, X_test=None, y_test=None):  # X=X_Train; y=y_Train
+    def _caculate_cost_function(self, y, y_hat, W, lambda_l1, lambda_l2):
+        m = y.shape[0]
+        J = - 1 / m * ((np.multiply(y, np.log(y_hat)) + np.multiply((1 - y), np.log(1 - y_hat))).sum() + lambda_l1*(np.abs(W).sum()) + 1/2*lambda_l2*(np.square(W).sum()))
+        return J
+
+    def _caculate_cost_function_gredient(self, X, y, y_hat, W, w_index, lambda_l1, lambda_l2):
+        m = y.shape[0]
+        gredient_cost = 1/m * np.multiply((y_hat - y), X.T[w_index].reshape((-1, 1))).sum()
+        gredient_l1 = 1/m * np.where(W[w_index] >= 0, 1*lambda_l1, -1*lambda_l1)   # |w| 求导
+        gredient_l2 = 1/m * W[w_index]*lambda_l2
+        gredient = gredient_cost + gredient_l1 + gredient_l2
+        # print((gredient_cost, gredient_l1, gredient_l2, gredient))
+
+        return gredient
+
+    def fit(self, X, y, eta=0.1, iter_rounds=2000, lambda_l1 = 0, lambda_l2 = 0, X_test=None, y_test=None):  # X=X_Train; y=y_Train;lambda_l1 = 0;lambda_l2 = 0.6
         if X_test is not None and y_test is not None:
             have_test_flag = 1
             X_test = X_test.values
@@ -53,12 +69,14 @@ class LR(object):
         J_list = {}
         W_list = {}
 
-        for iter in np.arange(0, iter_rounds):  # iter=34
+        for iter in np.arange(0, iter_rounds):  # iter=0
             print('iter:', iter)
             W = W_new
 
             h_current = self._Logistic_Regression(X=X, W=W)
-            J = - 1 / m * (np.multiply(y, np.log(h_current)) + np.multiply((1 - y), np.log(1 - h_current))).sum()
+            # h_current = _Logistic_Regression(self=[],X=X, W=W)
+            J = self._caculate_cost_function(y=y, y_hat=h_current, W=W, lambda_l1=lambda_l1, lambda_l2=lambda_l2)
+            # J = _caculate_cost_function(self=[], y=y, y_hat=h_current, W=W, lambda_l1=lambda_l1, lambda_l2=lambda_l2)
 
             # print("J:", round(J, 4))
             J_list[iter] = J
@@ -67,14 +85,15 @@ class LR(object):
             # Test
             if have_test_flag == 1:
                 h_current_test = self._Logistic_Regression(X=X_test, W=W)
-                J_test = - 1 / m * (np.multiply(y_test, np.log(h_current_test)) + np.multiply((1 - y_test), np.log(
-                    1 - h_current_test))).sum()
+                J_test = self._caculate_cost_function(y=y_test, y_hat=h_current_test, W=W, lambda_l1=lambda_l1, lambda_l2=lambda_l2)
                 J_list_test[iter] = J_test
 
             W_new = np.zeros((n, 1))
-            for x_index in np.arange(0, W.shape[0]):  # x_index=0
-                # print(x_index)
-                W_new[x_index] = W[x_index] - eta * (np.multiply((h_current - y), X.T[x_index].reshape((-1, 1))).sum() / m)
+            for w_index in np.arange(0, W.shape[0]):  # w_index=0
+                # print(w_index)
+                gredient = self._caculate_cost_function_gredient(X=X, y=y, y_hat=h_current, W=W, w_index=w_index, lambda_l1=lambda_l1, lambda_l2=lambda_l2)
+                # gredient = _caculate_cost_function_gredient(self=[], X=X, y=y, y_hat=h_current, W=W, w_index=w_index, lambda_l1=lambda_l1, lambda_l2=lambda_l2)
+                W_new[w_index] = W[w_index] - eta * gredient
 
         # 学习曲线
         J_function_df = pd.DataFrame(list(J_list.items()), columns=['iter', 'J_function'])
@@ -157,18 +176,18 @@ y_Train = train['Survived']
 
 # Test
 clf = LR()
-clf.fit(X=X_Train, y=y_Train, eta=0.03, iter_rounds=5000,  X_test=X_test, y_test=y_test)
+clf.fit(X=X_Train, y=y_Train, eta=0.01, iter_rounds=20000, lambda_l1=0, lambda_l2=0.5)
 clf.J_function_df
 clf.plot_CostFunction()
 
 pred_Y = clf.predict(new_data=X_test)
 pred_dt = pd.DataFrame(y_test)
 pred_dt['pred_Y'] = pred_Y
-roc_auc_score(pred_dt.Survived, pred_dt.pred_Y)  # 0.8578
+roc_auc_score(pred_dt.Survived, pred_dt.pred_Y)  # 0.8578(0.42)  0.8249(L2=0.7) (0.47 l2=0.01) 0.84(0.56 l1=0.03) 0.8638(l2=0.3)
 
 # Submit
 pre_Y = clf.predict(new_data=test)  # Parch = 9， 训练集未出现， 以该集合下最大类别代替
 submit = pd.DataFrame({'PassengerId': np.arange(892, 1310), 'Survived': (pre_Y>=0.5).astype('int')})
 submit.loc[:, 'Survived'] = submit.loc[:, 'Survived'].astype('category')
 submit['Survived'].cat.categories
-submit.to_csv('Result/submit_20190119_LR.csv', index=False)
+submit.to_csv('Result/submit_20190122_LR_l20.5.csv', index=False)
