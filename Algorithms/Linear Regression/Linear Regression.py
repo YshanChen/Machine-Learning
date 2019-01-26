@@ -9,9 +9,7 @@ Gradient Descend
 """
 
 """
-【待确认】
-代价函数 = 1/m * (损失函数 + 正则项) 正则项也要除以m, 梯度计算亦然。
-否则相当于正则项的影响放大了m倍。
+
 """
 
 import numpy as np
@@ -37,6 +35,14 @@ class LR(object):
         J = - 1 / m * ((np.multiply(y, np.log(y_hat)) + np.multiply((1 - y), np.log(1 - y_hat))).sum() + lambda_l1*(np.abs(W).sum()) + 1/2*lambda_l2*(np.square(W).sum()))
         return J
 
+     # p = pd.DataFrame({'y': pd.Series(map(lambda x: x[0], y)), 'y_hat': pd.Series(map(lambda x: x[0], y_hat)),
+     #                  '1-y': pd.Series(map(lambda x: x[0], 1 - y)),
+     #                  '1-y_hat': pd.Series(map(lambda x: x[0], 1 - y_hat)),
+     #                  'log(1-y_hat)': pd.Series(map(lambda x: x[0], np.log(1 - y_hat))),
+     #                  'a': pd.Series(map(lambda x: x[0], np.multiply(y, np.log(y_hat)))),
+     #                  'b': pd.Series(map(lambda x: x[0], np.multiply((1 - y), np.log(1 - y_hat)))), 'c': pd.Series(
+     #        map(lambda x: x[0], (np.multiply(y, np.log(y_hat)) + np.multiply((1 - y), np.log(1 - y_hat)))))})
+
     def _caculate_cost_function_gredient(self, X, y, y_hat, W, w_index, lambda_l1, lambda_l2):
         m = y.shape[0]
         gredient_cost = 1/m * np.multiply((y_hat - y), X.T[w_index].reshape((-1, 1))).sum()
@@ -47,7 +53,7 @@ class LR(object):
 
         return gredient
 
-    def fit(self, X, y, eta=0.1, iter_rounds=2000, lambda_l1 = 0, lambda_l2 = 0, X_test=None, y_test=None):  # X=X_Train; y=y_Train;lambda_l1 = 0;lambda_l2 = 0.6
+    def fit(self, X, y, eta=0.1, iter_rounds=2000, lambda_l1 = 0, lambda_l2 = 0, X_test=None, y_test=None):  # X=X_Train; y=y_Train;lambda_l1 = 0;lambda_l2 = 0.5
         if X_test is not None and y_test is not None:
             have_test_flag = 1
             X_test = X_test.values
@@ -69,7 +75,7 @@ class LR(object):
         J_list = {}
         W_list = {}
 
-        for iter in np.arange(0, iter_rounds):  # iter=0
+        for iter in np.arange(0, iter_rounds):  # iter=5
             print('iter:', iter)
             W = W_new
 
@@ -154,12 +160,20 @@ def one_hot_encoder(data, categorical_features, nan_as_category=True):
     return data, new_columns
 
 # 读取数据
-train = pd.read_csv('Data/train_fixed.csv')
-test = pd.read_csv('Data/test_fixed.csv')
+train = pd.read_csv('Data/train.csv')
+test = pd.read_csv('Data/test.csv')
 train_test = pd.concat([train, test], axis=0)
 
+train_test = train_test[['Age', 'Embarked', 'Fare', 'Parch', 'Pclass', 'Sex', 'SibSp', 'Survived']]
+train_test = train_test.fillna(value={'Age': train_test['Age'].mean(), 'Fare':train_test['Fare'].mean()})
+
+### 梯度下降算法 需要 feature scaling
+from sklearn import preprocessing
+train_test['Age'] = preprocessing.scale(train_test['Age'])
+train_test['Fare'] = preprocessing.scale(train_test['Fare'])
+
 train_test, cates = one_hot_encoder(data=train_test,
-                               categorical_features=['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked'],
+                               categorical_features=['Pclass', 'Sex', 'SibSp', 'Parch', 'Embarked'],
                                nan_as_category=False)
 
 train = train_test[~np.isnan(train_test['Survived'])]
@@ -176,18 +190,59 @@ y_Train = train['Survived']
 
 # Test
 clf = LR()
-clf.fit(X=X_Train, y=y_Train, eta=0.01, iter_rounds=20000, lambda_l1=0, lambda_l2=0.5)
-clf.J_function_df
-clf.plot_CostFunction()
+clf.fit(X=X_Train, y=y_Train, eta=0.001, iter_rounds=200000, lambda_l1=0, lambda_l2=0)
+functions_df = clf.J_function_df
+clf.plot_CostFunction() # 经过 Feature Scaling 后，学习曲线更加平滑下降
 
 pred_Y = clf.predict(new_data=X_test)
 pred_dt = pd.DataFrame(y_test)
 pred_dt['pred_Y'] = pred_Y
-roc_auc_score(pred_dt.Survived, pred_dt.pred_Y)  # 0.8578(0.42)  0.8249(L2=0.7) (0.47 l2=0.01) 0.84(0.56 l1=0.03) 0.8638(l2=0.3)
+roc_auc_score(pred_dt.Survived, pred_dt.pred_Y)  # 0.8474
 
 # Submit
 pre_Y = clf.predict(new_data=test)  # Parch = 9， 训练集未出现， 以该集合下最大类别代替
 submit = pd.DataFrame({'PassengerId': np.arange(892, 1310), 'Survived': (pre_Y>=0.5).astype('int')})
 submit.loc[:, 'Survived'] = submit.loc[:, 'Survived'].astype('category')
 submit['Survived'].cat.categories
-submit.to_csv('Result/submit_20190122_LR_l20.5.csv', index=False)
+submit.to_csv('Result/submit_20190126_LR_l20_FeatureScaling.csv', index=False)
+
+# sklearning
+# ------------------- LogisticRegression -----------------
+from sklearn.linear_model import
+clf = LogisticRegression(solver='liblinear', max_iter=100, verbose=1, n_jobs=-1)
+clf.fit(X=X_Train, y=y_Train)
+clf.get_params()
+
+pred_dt = pd.DataFrame(clf.predict_proba(X=X_test), index=X_test.index, columns=['pred_0', 'pred_1'])
+pred_dt['y_test'] = y_test
+roc_auc_score(pred_dt.y_test, pred_dt.pred_1)  # sag=0.8493 liblinear=0.8494
+
+pre_Y = clf.predict_proba(X=test)  # Parch = 9， 训练集未出现， 以该集合下最大类别代替
+submit = pd.DataFrame(clf.predict_proba(X=test), index=test.index, columns=['pred_0', 'Survived']).drop(columns=['pred_0'], axis=0)
+submit['PassengerId'] = np.arange(892, 1310)
+submit['Survived'] = (submit['Survived']>=0.5).astype('int')
+submit = submit[['PassengerId', 'Survived']]
+submit.loc[:, 'Survived'] = submit.loc[:, 'Survived'].astype('category')
+submit['Survived'].cat.categories
+submit.to_csv('Result/submit_20190126_LR_sklearn_liblinear.csv', index=False)
+
+# ------------------- SGD -----------------
+from sklearn.linear_model import SGDClassifier
+clf = SGDClassifier(loss='log', alpha=0.5)
+clf.fit(X=X_Train, y=y_Train)
+clf.get_params()
+
+pred_dt = pd.DataFrame(clf.predict_proba(X=X_test), index=X_test.index, columns=['pred_0', 'pred_1'])
+pred_dt['y_test'] = y_test
+roc_auc_score(pred_dt.y_test, pred_dt.pred_1)  # alpha=0.0001:0.7688   alpha=0.5:0.8317
+
+pre_Y = clf.predict_proba(X=test)  # Parch = 9， 训练集未出现， 以该集合下最大类别代替
+submit = pd.DataFrame(clf.predict_proba(X=test), index=test.index, columns=['pred_0', 'Survived']).drop(columns=['pred_0'], axis=0)
+submit['PassengerId'] = np.arange(892, 1310)
+submit['Survived'] = (submit['Survived']>=0.5).astype('int')
+submit = submit[['PassengerId', 'Survived']]
+submit.loc[:, 'Survived'] = submit.loc[:, 'Survived'].astype('category')
+submit['Survived'].cat.categories
+submit.to_csv('Result/submit_20190126_LR_sklearn_SGD_l20.5.csv', index=False)
+
+
