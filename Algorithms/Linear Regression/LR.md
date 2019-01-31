@@ -38,7 +38,7 @@
 >
 >可得 代价函数：
 >
->$$J(w,b) = \frac{1}{N} \sum \limits_{i=1}^{N}L(y_i,\hat{y_i}) = - \frac{1}{N} \sum \limits_{i=1}^{N} [y_i log(\hat{y_i})+(1-y_i)log(1-\hat{y_i})]$$
+>$$J(w,b) = \frac{1}{N} \sum \limits_{i=1}^{N}L(y_i,\hat{y_i}) = - \frac{1}{N} \sum \limits_{i=1}^{N} [y_i log(\hat{y_i})+(1-y_i)log(1-\hat{y_i})]​$$
 
 
 
@@ -57,5 +57,21 @@
 
 ### 4. 梯度推导
 
-https://my.oschina.net/chensanti234/blog/1563455
+![LR-1](https://github.com/YshanChen/Machine-Learning/blob/master/JPG/LR-1.png?raw=true)
+
+其中：
+
+![LR-2](https://github.com/YshanChen/Machine-Learning/blob/master/JPG/LR-2.png?raw=true)
+
+最后：
+
+![LR-3](https://github.com/YshanChen/Machine-Learning/blob/master/JPG/LR-3.png?raw=true)
+
+### 5. 正则项
+
+代价函数添加正则项：
+
+$$J(w,b) = - \frac{1}{m} \sum \limits_{i=1}^{m} [y_i log(\hat{y_i})+(1-y_i)log(1-\hat{y_i})] + \frac{\lambda}{2m}\sum \limits_{j=1}^{J}w_j^2$$
+
+**注意：** 正则项也需要乘以$\frac{1}{m}$, $\lambda$为正则项系数。
 

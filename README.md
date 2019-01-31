@@ -17,21 +17,20 @@
 ## 目前已完成：
 1. ID3
 2. C4.5
-3. CART(binary)
+3. CART
 4. LR
+5. Adaboost
+6. Linear Regression
 
 ## 正在进行：
-1. CART(regression)
-2. Adaboost
-3. GBDT
+1. GBDT
+2. Random Forest
 
 ## 待完成：
-1. Linear Regression
-2. lasso
-3. ridge
-4. KNN
-5. Random Forest
-6. Xgboost
-7. LightGBM
-8. SVM
+1. lasso
+2. ridge
+3. KNN
+4. Xgboost
+5. LightGBM
+6. SVM
   ...
